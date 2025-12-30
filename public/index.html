@@ -304,18 +304,53 @@
             document.getElementById('phaseDisplay').innerText = phaseText;
             addTypesLogs(data.logs);
 
+            // Check if current player died
+            const me = currentPlayers.find(p => p.id === myPlayerId);
+            const wasAlive = me && me.alive;
+
             // Sync players to define Alive status
             socket.emit('GET_PLAYERS');
 
             // Narrator Popups
             if (data.phase === 'day') {
                 showNarrator('BAN NGÀY ☀️', `Trời sáng rồi!`);
+
+                // Check if player died during night
+                setTimeout(() => {
+                    const meNow = currentPlayers.find(p => p.id === myPlayerId);
+                    if (wasAlive && meNow && !meNow.alive) {
+                        showDeathNotification();
+                    }
+                }, 500);
             } else if (data.phase === 'vote') {
                 showNarrator('BỎ PHIẾU 🗳️', 'Mọi người hãy bỏ phiếu treo cổ!');
             } else if (data.phase === 'night') {
                 showNarrator('BAN ĐÊM 🌙', `Đêm thứ ${data.day}. Các chức năng hoạt động!`);
+
+                // Check if player died during vote/execution
+                setTimeout(() => {
+                    const meNow = currentPlayers.find(p => p.id === myPlayerId);
+                    if (wasAlive && meNow && !meNow.alive) {
+                        showDeathNotification();
+                    }
+                }, 500);
             } else if (data.phase === 'end') {
-                showNarrator('GAME OVER 🏁', 'Trò chơi kết thúc!');
+                // Display winning faction instead of generic game over
+                let winnerTitle = 'GAME OVER 🏁';
+                let winnerMsg = 'Trò chơi kết thúc!';
+
+                if (data.winner === 'WOLVES') {
+                    winnerTitle = 'SÓI CHIẾN THẮNG! 🐺';
+                    winnerMsg = 'Phe Sói đã tiêu diệt hết Dân Làng!';
+                } else if (data.winner === 'VILLAGERS') {
+                    winnerTitle = 'DÂN LÀNG CHIẾN THẮNG! 🏆';
+                    winnerMsg = 'Phe Dân Làng đã tiêu diệt hết Sói!';
+                } else if (data.winner === 'TRAITOR') {
+                    winnerTitle = 'KẺ PHẢN BỘI CHIẾN THẮNG! 🎭';
+                    winnerMsg = 'Kẻ Phản Bội đã hoàn thành mục tiêu!';
+                }
+
+                showNarrator(winnerTitle, winnerMsg);
             } else if (data.phase === 'execution_reveal') {
                 showNarrator('KẾT QUẢ ⚖️', 'Đã có kết quả treo cổ...');
             }
@@ -342,6 +377,53 @@
             narratorOverlay.classList.add('hidden');
             narratorOverlay.style.display = 'none';
         };
+
+        // --- DEATH NOTIFICATION (Enhanced) ---
+        function showDeathNotification() {
+            // Create dramatic death overlay
+            const deathOverlay = document.createElement('div');
+            deathOverlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(139, 0, 0, 0.95);
+                z-index: 3000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                flex-direction: column;
+                animation: fadeIn 0.5s ease-in;
+            `;
+
+            deathOverlay.innerHTML = `
+                <div style="text-align: center; color: #fff; padding: 30px;">
+                    <div style="font-size: 80px; margin-bottom: 20px; animation: pulse 1.5s infinite;">💀</div>
+                    <h1 style="font-size: 48px; color: #ff4444; margin-bottom: 20px; text-transform: uppercase; text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000; font-weight: bold; letter-spacing: 3px;">BẠN ĐÃ CHẾT</h1>
+                    <p style="font-size: 24px; line-height: 1.8; color: #ffcccc; max-width: 400px; margin: 0 auto 30px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">
+                        Bạn đã bị loại khỏi trò chơi.<br>
+                        Bạn có thể theo dõi game tiếp tục.
+                    </p>
+                    <button onclick="this.parentElement.parentElement.remove()" 
+                        style="padding: 15px 40px; font-size: 20px; font-weight: bold; background: #000; color: #ff4444; border: 2px solid #ff4444; border-radius: 8px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px;">
+                        Đóng
+                    </button>
+                </div>
+                <style>
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes pulse {
+                        0%, 100% { transform: scale(1); }
+                        50% { transform: scale(1.1); }
+                    }
+                </style>
+            `;
+
+            document.body.appendChild(deathOverlay);
+        }
 
         // --- UI FUNCTIONS ---
 
@@ -489,7 +571,8 @@
             actionArea.classList.remove('hidden');
 
             // Render targets (Alive players excluding self and Host)
-            currentPlayers.filter(p => !p.isHost).forEach(p => {
+            // IMPORTANT: Filter out dead players from vote list
+            currentPlayers.filter(p => !p.isHost && p.alive).forEach(p => {
                 // Self-targeting allowed?
                 // Bodyguard: Can protect self? Usually yes.
                 // Witch: Can save self? Usually yes (once).

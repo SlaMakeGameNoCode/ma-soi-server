@@ -168,7 +168,8 @@ io.on('connection', (socket) => {
             io.to(roomCode).emit('PHASE_CHANGED', {
                 phase: room.phase,
                 day: room.day,
-                logs: room.actionLog
+                logs: room.actionLog,
+                winner: room.winner // Send winner data for game over screen
             });
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
@@ -184,7 +185,8 @@ io.on('connection', (socket) => {
             io.to(roomCode).emit('PHASE_CHANGED', {
                 phase: room.phase,
                 day: room.day,
-                logs: room.actionLog
+                logs: room.actionLog,
+                winner: room.winner // Send winner data for game over screen
             });
         } catch (error) {
             socket.emit('ERROR', { message: error.message });

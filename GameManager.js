@@ -369,6 +369,26 @@ class GameManager {
     }
   }
 
+  getActionStatus(roomCode) {
+    const room = this.rooms.get(roomCode);
+    if (!room) return null;
+
+    let total = 0;
+    let submitted = 0;
+
+    if (room.phase === 'vote') {
+      total = room.players.filter(p => p.alive).length;
+      submitted = room.votes.size;
+    } else if (room.phase === 'night') {
+      const nightRoles = [ROLE_TYPES.ALPHA_WOLF, ROLE_TYPES.WOLF, ROLE_TYPES.DETECTIVE];
+      const activePlayers = room.players.filter(p => p.alive && nightRoles.includes(p.role));
+      total = activePlayers.length;
+      submitted = activePlayers.filter(p => room.actions.has(p.id)).length;
+    }
+
+    return { submitted, total };
+  }
+
   // Getters & Helpers matching old API to avoid breaking server.js too much
   getRoom(roomCode) { return this.rooms.get(roomCode); }
   getPlayerView(roomCode, playerId) {

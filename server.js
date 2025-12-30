@@ -117,7 +117,21 @@ io.on('connection', (socket) => {
         const { roomCode, playerId } = socket.data;
         try {
             gameManager.submitAction(roomCode, playerId, type, targetId);
-            // socket.emit('ACTION_CONFIRMED', { type, targetId });
+
+            // Notify Host of progress
+            const status = gameManager.getActionStatus(roomCode);
+            const room = gameManager.getRoom(roomCode);
+            const host = room.players.find(p => p.isHost);
+            if (host && host.connected) {
+                // Find host socket
+                const hostSocket = Array.from(io.sockets.sockets.values()).find(s => s.data.playerId === host.id);
+                if (hostSocket) {
+                    hostSocket.emit('HOST_UPDATE', {
+                        actionStatus: status
+                    });
+                }
+            }
+
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
         }
@@ -127,6 +141,20 @@ io.on('connection', (socket) => {
         const { roomCode, playerId } = socket.data;
         try {
             gameManager.submitVote(roomCode, playerId, targetId);
+
+            // Notify Host of progress
+            const status = gameManager.getActionStatus(roomCode);
+            const room = gameManager.getRoom(roomCode);
+            const host = room.players.find(p => p.isHost);
+            if (host && host.connected) {
+                const hostSocket = Array.from(io.sockets.sockets.values()).find(s => s.data.playerId === host.id);
+                if (hostSocket) {
+                    hostSocket.emit('HOST_UPDATE', {
+                        actionStatus: status
+                    });
+                }
+            }
+
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
         }

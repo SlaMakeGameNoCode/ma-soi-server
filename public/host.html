@@ -219,6 +219,16 @@
             <!-- Game Controls -->
             <div class="card">
                 <h3>Điều Khiển</h3>
+
+                <!-- Progress Indicator -->
+                <div
+                    style="background: #334155; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+                    <span style="color: #94a3b8; font-size: 14px;">ACTIONS READY</span>
+                    <div style="font-size: 24px; font-weight: bold; color: #3b82f6;">
+                        <span id="actionCount">0</span> / <span id="actionTotal">0</span>
+                    </div>
+                </div>
+
                 <div style="display: flex; gap: 10px;">
                     <button class="btn btn-primary" id="startGameBtn">Bắt Đầu Game</button>
                     <button class="btn btn-secondary" id="nextPhaseBtn" disabled>Phase Tiếp Theo</button>
@@ -335,11 +345,44 @@
             });
         });
 
+        document.getElementById('nextPhaseBtn').addEventListener('click', () => {
+            socket.emit('NEXT_PHASE');
+        });
+
         socket.on('GAME_STARTED', (data) => {
             roleConfig.classList.add('hidden');
             startGameBtn.classList.add('hidden');
             document.getElementById('phaseDisplay').innerText = 'NIGHT 1';
+            document.getElementById('nextPhaseBtn').disabled = false; // Enable phase control
+            document.getElementById('nextPhaseBtn').style.backgroundColor = ''; // Reset color
             addLog('🎮 GAME STARTED! Phase: NIGHT 1');
+
+            // Initial counts
+            document.getElementById('actionCount').innerText = '0';
+            document.getElementById('actionTotal').innerText = data.players.length;
+        });
+
+        socket.on('PHASE_CHANGED', (data) => {
+            document.getElementById('phaseDisplay').innerText = (data.phase + ' ' + (data.day || '')).toUpperCase();
+            addLog(`Changed Phase: ${data.phase}`);
+            document.getElementById('nextPhaseBtn').style.backgroundColor = ''; // Reset color
+
+            // Reset counts
+            document.getElementById('actionCount').innerText = '0';
+        });
+
+        socket.on('HOST_UPDATE', (data) => {
+            if (data.actionStatus) {
+                document.getElementById('actionCount').innerText = data.actionStatus.submitted;
+                document.getElementById('actionTotal').innerText = data.actionStatus.total;
+
+                // Highlight button if all ready
+                const btn = document.getElementById('nextPhaseBtn');
+                if (data.actionStatus.submitted >= data.actionStatus.total) { // or threshold
+                    btn.style.backgroundColor = '#10b981'; // Green
+                    btn.disabled = false;
+                }
+            }
         });
 
         socket.on('ERROR', (data) => {

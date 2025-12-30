@@ -397,8 +397,12 @@
         });
 
         endGameBtn.addEventListener('click', () => {
+            console.log('[HOST] End Game button clicked');
             if (confirm('Bạn chắc chắn muốn kết thúc game này?')) {
+                console.log('[HOST] Sending END_GAME event');
                 socket.emit('END_GAME');
+            } else {
+                console.log('[HOST] End game cancelled by user');
             }
         });
 

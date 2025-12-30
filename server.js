@@ -179,8 +179,10 @@ io.on('connection', (socket) => {
 
     socket.on('END_GAME', () => {
         const { roomCode, playerId } = socket.data;
+        console.log(`[SERVER] END_GAME received from ${playerId} in room ${roomCode}`);
         try {
             const room = gameManager.endGame(roomCode, playerId);
+            console.log(`[SERVER] Game ended. Winner: ${room.winner}, Phase: ${room.phase}`);
             io.to(roomCode).emit('GAME_ENDED', { winner: room.winner, logs: room.actionLog });
             // Also emit phase change to update UIs
             io.to(roomCode).emit('PHASE_CHANGED', {
@@ -190,6 +192,7 @@ io.on('connection', (socket) => {
                 winner: room.winner // Send winner data for game over screen
             });
         } catch (error) {
+            console.error('[SERVER] END_GAME error:', error);
             socket.emit('ERROR', { message: error.message });
         }
     });

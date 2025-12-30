@@ -95,10 +95,10 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('START_GAME', () => {
+    socket.on('START_GAME', ({ roleConfig }) => {
         const { roomCode, playerId } = socket.data;
         try {
-            const result = gameManager.startGame(roomCode, playerId);
+            const result = gameManager.startGame(roomCode, playerId, roleConfig);
             result.players.forEach(player => {
                 const foundSocket = Array.from(io.sockets.sockets.values()).find(s => s.data.playerId === player.id);
                 const socketId = foundSocket ? foundSocket.id : null;
@@ -109,6 +109,39 @@ io.on('connection', (socket) => {
             console.log(`Game started in room ${roomCode}`);
         } catch (error) {
             console.error('START_GAME error:', error);
+            socket.emit('ERROR', { message: error.message });
+        }
+    });
+
+    socket.on('ACTION', ({ type, targetId }) => {
+        const { roomCode, playerId } = socket.data;
+        try {
+            gameManager.submitAction(roomCode, playerId, type, targetId);
+            // socket.emit('ACTION_CONFIRMED', { type, targetId });
+        } catch (error) {
+            socket.emit('ERROR', { message: error.message });
+        }
+    });
+
+    socket.on('VOTE', ({ targetId }) => {
+        const { roomCode, playerId } = socket.data;
+        try {
+            gameManager.submitVote(roomCode, playerId, targetId);
+        } catch (error) {
+            socket.emit('ERROR', { message: error.message });
+        }
+    });
+
+    socket.on('NEXT_PHASE', () => {
+        const { roomCode, playerId } = socket.data;
+        try {
+            const room = gameManager.advancePhase(roomCode, playerId);
+            io.to(roomCode).emit('PHASE_CHANGED', {
+                phase: room.phase,
+                day: room.day,
+                logs: room.actionLog
+            });
+        } catch (error) {
             socket.emit('ERROR', { message: error.message });
         }
     });

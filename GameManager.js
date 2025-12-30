@@ -164,8 +164,13 @@ class GameManager {
     room.actions.set(playerId, { type: actionType, targetId });
     player.hasVoted = true;
 
-    // Log (private server log, not public yet)
-    // console.log(`Action: ${player.name} -> ${actionType} -> ${targetId}`);
+    // Return sensitive details for Host Log
+    return {
+      actorName: player.name,
+      actorRole: player.role,
+      actionType: actionType,
+      targetName: room.players.find(p => p.id === targetId)?.name || 'Unknown'
+    };
   }
 
   // Determine if phase (Night/Day) is ready to end

@@ -475,6 +475,20 @@
                     document.getElementById('nextPhaseBtn').disabled = false;
                 }
             }
+
+            // Real-time Action Log
+            if (data.actionLog) {
+                const { actorName, actorRole, actionType, targetName } = data.actionLog;
+                let logMsg = `⚡ [ACTION] ${actorName} (${actorRole})`;
+
+                if (actionType === 'KILL') logMsg += ` 🗡️ đang muốn GIẾT ${targetName}`;
+                else if (actionType === 'CURSE') logMsg += ` 🧪 đang muốn NGUYỀN ${targetName}`;
+                else if (actionType === 'CHECK') logMsg += ` 🕵️ đang SOI ${targetName}`;
+                else if (actionType === 'VOTE') logMsg += ` 🗳️ bỏ phiếu treo cổ ${targetName}`;
+                else logMsg += ` -> ${actionType} -> ${targetName}`;
+
+                addLog(logMsg);
+            }
         });
 
         socket.on('PLAYER_DISCONNECTED', () => {

@@ -116,9 +116,9 @@ io.on('connection', (socket) => {
     socket.on('ACTION', ({ type, targetId }) => {
         const { roomCode, playerId } = socket.data;
         try {
-            gameManager.submitAction(roomCode, playerId, type, targetId);
+            const actionDetails = gameManager.submitAction(roomCode, playerId, type, targetId);
 
-            // Notify Host of progress
+            // Notify Host of progress & Action Details
             const status = gameManager.getActionStatus(roomCode);
             const room = gameManager.getRoom(roomCode);
             const host = room.players.find(p => p.isHost);
@@ -127,7 +127,8 @@ io.on('connection', (socket) => {
                 const hostSocket = Array.from(io.sockets.sockets.values()).find(s => s.data.playerId === host.id);
                 if (hostSocket) {
                     hostSocket.emit('HOST_UPDATE', {
-                        actionStatus: status
+                        actionStatus: status,
+                        actionLog: actionDetails // New field
                     });
                 }
             }

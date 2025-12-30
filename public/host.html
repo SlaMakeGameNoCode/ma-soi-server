@@ -346,11 +346,13 @@
         // Start Game
         startGameBtn.addEventListener('click', () => {
             // Validate roles
+            // Count actual players (excluding host)
             const players = document.querySelectorAll('.player-card').length;
             const required = Object.values(roles).reduce((sum, r) => sum + r.count, 0);
 
+            // Allow start if players > roles (fill rest with Villagers)
             if (players < required) {
-                alert(`Không đủ người chơi! Cần ít nhất ${required} người.`);
+                alert(`Không đủ người chơi! Cần ít nhất ${required} người chơi (Host không được tính).\nHiện có: ${players} người chơi sẵn sàng.`);
                 return;
             }
 

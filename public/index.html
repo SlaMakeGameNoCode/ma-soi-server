@@ -367,8 +367,8 @@
             }
             actionArea.classList.remove('hidden');
 
-            // Render targets (Alive players excluding self usually, but depends on role)
-            currentPlayers.filter(p => !p.isSpectator).forEach(p => { // Show all alive players
+            // Render targets (Alive players excluding self and Host)
+            currentPlayers.filter(p => !p.isHost).forEach(p => {
                 if (p.id === myPlayerId && actionType !== 'LAWYER_PROTECT') return; // Cannot target self usually
 
                 const div = document.createElement('div');

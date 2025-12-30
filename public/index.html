@@ -232,6 +232,37 @@
             margin-bottom: 20px;
         }
 
+        .timer-display {
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+            color: #fbbf24;
+            padding: 20px;
+            background: #1e293b;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 2px solid #3b82f6;
+            display: none;
+        }
+
+        .timer-display.warning {
+            color: #ef4444;
+            border-color: #ef4444;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
         /* Action List */
         .action-list {
             display: grid;
@@ -301,6 +332,9 @@
 
             <!-- Phase & Status -->
             <div class="phase-indicator" id="phaseDisplay">NIGHT 1</div>
+
+            <!-- Timer Display -->
+            <div class="timer-display" id="timerDisplay">--</div>
 
             <!-- Action Area -->
             <div class="card" id="actionArea">
@@ -631,6 +665,26 @@
             alert(data.message || 'Host đã rời phòng.');
             // Return to join screen
             window.location.reload();
+        });
+
+        // Timer Update Handler
+        socket.on('TIMER_UPDATE', (data) => {
+            const timerDisplay = document.getElementById('timerDisplay');
+            const { timeLeft } = data;
+
+            if (timeLeft !== undefined && timeLeft >= 0) {
+                timerDisplay.style.display = 'block';
+                timerDisplay.innerText = `⏱️ ${timeLeft}s`;
+
+                // Warning styling when time is low
+                if (timeLeft <= 10) {
+                    timerDisplay.classList.add('warning');
+                } else {
+                    timerDisplay.classList.remove('warning');
+                }
+            } else {
+                timerDisplay.style.display = 'none';
+            }
         });
 
         // NEW: Witch Preview System

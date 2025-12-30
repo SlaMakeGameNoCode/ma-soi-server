@@ -155,6 +155,37 @@
             font-size: 14px;
             font-weight: bold;
         }
+
+        .timer-display {
+            text-align: center;
+            font-size: 36px;
+            font-weight: bold;
+            color: #fbbf24;
+            padding: 15px;
+            background: #1e293b;
+            border-radius: 12px;
+            margin-top: 10px;
+            border: 2px solid #3b82f6;
+            display: none;
+        }
+
+        .timer-display.warning {
+            color: #ef4444;
+            border-color: #ef4444;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
     </style>
 </head>
 
@@ -181,6 +212,8 @@
                                 Link</button>
                         </h2>
                         <span id="phaseDisplay" class="phase-badge">LOBBY</span>
+                        <!-- Timer Display -->
+                        <div class="timer-display" id="timerDisplay">--</div>
                     </div>
                     <div style="text-align: right;">
                         <div style="font-size: 24px; font-weight: bold;" id="totalPlayersHeader">0</div>
@@ -192,6 +225,23 @@
             <!-- Role Configuration (Only in Lobby) -->
             <div id="roleConfig" class="card">
                 <h3>Cấu Hình Vai Trò</h3>
+
+                <!-- Max Players Configuration -->
+                <div
+                    style="background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #3b82f6;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold; color: #3b82f6;">👥 Số Người Chơi Tối Đa</span>
+                        <div class="role-inputs">
+                            <button class="role-btn" onclick="updateMaxPlayers(-1)">-</button>
+                            <span class="role-count" id="maxPlayersDisplay" style="min-width: 40px;">15</span>
+                            <button class="role-btn" onclick="updateMaxPlayers(1)">+</button>
+                        </div>
+                    </div>
+                    <div style="text-align: center; margin-top: 8px; font-size: 12px; color: #94a3b8;">
+                        (Không tính Host, từ 3-20 người)
+                    </div>
+                </div>
+
                 <div id="rolesList"></div>
                 <div style="text-align: center; margin-top: 10px; color: #94a3b8;">
                     Đã chọn: <span id="totalRoles">0</span> role / Người chơi: <span id="totalPlayers">0</span>
@@ -273,6 +323,20 @@
             hunter: { name: "Thợ Săn", count: 0, max: 1, min: 0 },
             traitor: { name: "Kẻ Phản Bội", count: 0, max: 2, min: 0 },
             villager: { name: "Dân Làng", count: 0, max: 15, min: 1 }
+        };
+
+        // Max Players State
+        let currentMaxPlayers = 15;
+
+        // Update Max Players
+        window.updateMaxPlayers = (change) => {
+            const newMax = currentMaxPlayers + change;
+            if (newMax >= 3 && newMax <= 20) {
+                currentMaxPlayers = newMax;
+                document.getElementById('maxPlayersDisplay').innerText = currentMaxPlayers;
+                // Send to server
+                socket.emit('SET_MAX_PLAYERS', { maxPlayers: currentMaxPlayers });
+            }
         };
 
         // Initialize UI
@@ -511,6 +575,33 @@
         socket.on('ERROR', (data) => {
             alert(data.message);
             addLog(`❌ Lỗi: ${data.message}`);
+        });
+
+        // Timer Update Handler
+        socket.on('TIMER_UPDATE', (data) => {
+            const timerDisplay = document.getElementById('timerDisplay');
+            const { timeLeft } = data;
+
+            if (timeLeft !== undefined && timeLeft >= 0) {
+                timerDisplay.style.display = 'block';
+                timerDisplay.innerText = `⏱️ ${timeLeft}s`;
+
+                // Warning styling when time is low
+                if (timeLeft <= 10) {
+                    timerDisplay.classList.add('warning');
+                } else {
+                    timerDisplay.classList.remove('warning');
+                }
+            } else {
+                timerDisplay.style.display = 'none';
+            }
+        });
+
+        // Max Players Updated Handler
+        socket.on('MAX_PLAYERS_UPDATED', (data) => {
+            currentMaxPlayers = data.maxPlayers;
+            document.getElementById('maxPlayersDisplay').innerText = currentMaxPlayers;
+            addLog(`👥 Số người tối đa: ${currentMaxPlayers}`);
         });
 
         window.kickPlayer = (id, name) => {

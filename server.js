@@ -95,6 +95,19 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('SET_MAX_PLAYERS', ({ maxPlayers }) => {
+        const { roomCode, playerId } = socket.data;
+        try {
+            const room = gameManager.setMaxPlayers(roomCode, playerId, maxPlayers);
+            // Broadcast updated maxPlayers to all clients
+            io.to(roomCode).emit('MAX_PLAYERS_UPDATED', { maxPlayers: room.maxPlayers });
+            console.log(`Max players set to ${maxPlayers} in room ${roomCode}`);
+        } catch (error) {
+            console.error('SET_MAX_PLAYERS error:', error);
+            socket.emit('ERROR', { message: error.message });
+        }
+    });
+
     socket.on('START_GAME', ({ roleConfig }) => {
         const { roomCode, playerId } = socket.data;
         try {
@@ -200,6 +213,47 @@ io.on('connection', (socket) => {
                 winner: room.winner, // Send winner data for game over screen
                 executedPlayerId: room.executedPlayerId // Send who was executed
             });
+
+            // Start auto-timer for DAY phase (60 seconds)
+            if (room.phase === 'day') {
+                console.log(`[TIMER] Starting 60s timer for DAY phase in room ${roomCode}`);
+
+                // Clear any existing timer for this room
+                if (room.phaseTimer) {
+                    clearInterval(room.phaseTimer);
+                }
+
+                let timeLeft = 60; // 60 seconds
+
+                // Emit initial timer
+                io.to(roomCode).emit('TIMER_UPDATE', { timeLeft });
+
+                // Update timer every second
+                room.phaseTimer = setInterval(() => {
+                    timeLeft--;
+                    io.to(roomCode).emit('TIMER_UPDATE', { timeLeft });
+
+                    if (timeLeft <= 0) {
+                        clearInterval(room.phaseTimer);
+                        room.phaseTimer = null;
+
+                        // Auto-advance to VOTE phase
+                        console.log(`[TIMER] Auto-advancing to VOTE phase in room ${roomCode}`);
+                        try {
+                            const updatedRoom = gameManager.advancePhase(roomCode, playerId);
+                            io.to(roomCode).emit('PHASE_CHANGED', {
+                                phase: updatedRoom.phase,
+                                day: updatedRoom.day,
+                                logs: updatedRoom.actionLog,
+                                winner: updatedRoom.winner,
+                                executedPlayerId: updatedRoom.executedPlayerId
+                            });
+                        } catch (error) {
+                            console.error('[TIMER] Auto-advance error:', error);
+                        }
+                    }
+                }, 1000);
+            }
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
         }
@@ -326,28 +380,4 @@ const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Ma Sói Server running on port ${PORT}`);
     console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
-
-    // Keep-alive mechanism for Render free tier
-    // Render sleeps after 15 minutes of no HTTP activity
-    // WebSocket connections don't count, so we need to ping ourselves
-    if (process.env.RENDER_SERVICE_NAME) {
-        console.log('🔄 Keep-alive enabled for Render hosting');
-        const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes
-
-        setInterval(() => {
-            const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
-            fetch(`${url}/api/health`)
-                .then(res => {
-                    if (res.ok) {
-                        console.log('✅ Keep-alive ping successful');
-                    } else {
-                        console.log('⚠️ Keep-alive ping failed:', res.status);
-                    }
-                })
-                .catch(err => {
-                    console.log('❌ Keep-alive ping error:', err.message);
-                });
-        }, PING_INTERVAL);
-    }
 });
-

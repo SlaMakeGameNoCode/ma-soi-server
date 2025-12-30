@@ -32,6 +32,7 @@ class GameManager {
       roomCode,
       phase: 'lobby',
       day: 0,
+      maxPlayers: 15, // Default max players (excluding host)
       players: [{
         id: hostId,
         name: hostName,
@@ -69,6 +70,12 @@ class GameManager {
     }
 
     if (room.phase !== 'lobby') throw new Error('Game already started');
+
+    // Check max players limit (excluding host)
+    const currentPlayerCount = room.players.filter(p => !p.isHost).length;
+    if (currentPlayerCount >= room.maxPlayers) {
+      throw new Error(`Phòng đã đầy! Tối đa ${room.maxPlayers} người chơi.`);
+    }
 
     const playerId = nanoid();
     const token = nanoid(32);
@@ -596,6 +603,27 @@ class GameManager {
       p.attributes = {};
     });
 
+    return room;
+  }
+
+  setMaxPlayers(roomCode, hostId, maxPlayers) {
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Không tìm thấy phòng');
+    if (!room.players.find(p => p.id === hostId && p.isHost)) throw new Error('Không có quyền Host');
+    if (room.phase !== 'lobby') throw new Error('Chỉ có thể thay đổi trong Lobby');
+
+    // Validate maxPlayers
+    if (maxPlayers < 3 || maxPlayers > 20) {
+      throw new Error('Số người chơi phải từ 3 đến 20');
+    }
+
+    // Check current player count
+    const currentPlayerCount = room.players.filter(p => !p.isHost).length;
+    if (currentPlayerCount > maxPlayers) {
+      throw new Error(`Hiện có ${currentPlayerCount} người chơi. Không thể giảm xuống ${maxPlayers}.`);
+    }
+
+    room.maxPlayers = maxPlayers;
     return room;
   }
 

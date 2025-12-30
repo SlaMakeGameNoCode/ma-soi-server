@@ -352,7 +352,36 @@
 
                 showNarrator(winnerTitle, winnerMsg);
             } else if (data.phase === 'execution_reveal') {
-                showNarrator('KẾT QUẢ ⚖️', 'Đã có kết quả treo cổ...');
+                // Find who was executed from logs or executedPlayerId
+                let victimName = 'ai đó';
+
+                if (data.executedPlayerId) {
+                    const victim = currentPlayers.find(p => p.id === data.executedPlayerId);
+                    if (victim) {
+                        victimName = victim.name;
+                    }
+                } else {
+                    // Parse from logs if executedPlayerId not available
+                    const executionLog = data.logs.find(log => log.includes('đã bị treo cổ'));
+                    if (executionLog) {
+                        const match = executionLog.match(/⚖️ (.+) đã bị treo cổ/);
+                        if (match) victimName = match[1];
+                    }
+                }
+
+                // Show announcement
+                if (victimName === 'ai đó' && !data.executedPlayerId) {
+                    showNarrator('KẾT QUẢ ⚖️', 'Không ai bị treo cổ.');
+                } else {
+                    showNarrator('KẾT QUẢ TREO CỔ ⚖️', `${victimName} đã bị treo cổ!`);
+
+                    // Show death notification to executed player
+                    setTimeout(() => {
+                        if (data.executedPlayerId === myPlayerId) {
+                            showDeathNotification();
+                        }
+                    }, 1500); // Delay so they see the announcement first
+                }
             }
         });
 

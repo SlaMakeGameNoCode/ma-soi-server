@@ -396,6 +396,9 @@ class GameManager {
       if (c > max) { max = c; targetId = id; }
     });
 
+    // Track executed player for client notification
+    room.executedPlayerId = null;
+
     if (targetId) {
       const victim = room.players.find(p => p.id === targetId);
 
@@ -405,6 +408,7 @@ class GameManager {
         room.actionLog.push(`⚖️ Luật sự can thiệp! ${victim.name} được miễn án tử.`);
       } else {
         victim.alive = false;
+        room.executedPlayerId = targetId; // Store for client notification
         room.actionLog.push(`⚖️ ${victim.name} đã bị treo cổ.`);
 
         if (victim.role === ROLE_TYPES.HUNTER) {

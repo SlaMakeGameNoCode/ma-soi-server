@@ -169,7 +169,8 @@ io.on('connection', (socket) => {
                 phase: room.phase,
                 day: room.day,
                 logs: room.actionLog,
-                winner: room.winner // Send winner data for game over screen
+                winner: room.winner, // Send winner data for game over screen
+                executedPlayerId: room.executedPlayerId // Send who was executed
             });
         } catch (error) {
             socket.emit('ERROR', { message: error.message });

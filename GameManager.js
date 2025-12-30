@@ -449,7 +449,8 @@ class GameManager {
     room.votes.clear();
     room.actions.delete('LAWYER_PROTECT'); // Clear lawyer action
 
-    // Win Check
+    // Win Check BEFORE execution_reveal
+    // This prevents going to night when game is already won (e.g. 1 wolf vs 1 villager)
     this.checkWin(room);
 
     if (room.phase !== 'end') {

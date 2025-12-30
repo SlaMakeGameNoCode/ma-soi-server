@@ -356,9 +356,14 @@ class GameManager {
     room.actions.clear();
     room.players.forEach(p => p.hasVoted = false);
 
-    // Transition
-    room.phase = 'day';
-    room.actionLog.push(...logs);
+    // Check win condition after night deaths
+    this.checkWin(room);
+
+    // Transition to day (unless game ended)
+    if (room.phase !== 'end') {
+      room.phase = 'day';
+      room.actionLog.push(...logs);
+    }
   }
 
   submitVote(roomCode, playerId, targetId) {

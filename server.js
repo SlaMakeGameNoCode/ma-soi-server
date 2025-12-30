@@ -208,6 +208,24 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('GET_PLAYERS', () => {
+        const { roomCode } = socket.data;
+        if (roomCode) {
+            const room = gameManager.getRoom(roomCode);
+            if (room) {
+                // Get player view for Host (so all roles are visible? No, helper getPlayerView hides stuff)
+                // BUT Host needs to see Roles? Spec says "Host is Moderator".
+                // Our getPlayerView has logic: "role: (p.id === playerId || room.phase === 'end' || isActiveHost...) ? ..."
+                // The Host calls this, so playerId is hostId. 
+                // Host IS valid in this check: room.players.find(h => h.id === playerId)?.isHost
+                // So getPlayerView SHOULD reveal all roles to Host.
+
+                const playerView = gameManager.getPlayerView(roomCode, socket.data.playerId);
+                socket.emit('PLAYER_JOINED', { players: playerView.players });
+            }
+        }
+    });
+
     socket.on('disconnect', () => {
         const { roomCode, playerId } = socket.data;
         if (roomCode && playerId) {

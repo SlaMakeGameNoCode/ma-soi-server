@@ -105,7 +105,7 @@ class GameManager {
 
     room.phase = 'night';
     room.day = 1;
-    room.actionLog.push(`Game started with ${totalPlayers} players.`);
+    room.actionLog.push(`Game bắt đầu với ${totalPlayers} người chơi (trừ Host).`);
 
     return room;
   }
@@ -248,9 +248,14 @@ class GameManager {
         // Assuming Lawyer acts at night to setup protection? Or during day?
         // Let's assume Lawyer acts at NIGHT to protect for the NEXT DAY.
 
-        const msg = hasAction ? "Target HAS night action." : "Target has NO night action.";
+        const msg = hasAction ? "Mục tiêu CÓ hoạt động đêm nay." : "Mục tiêu KHÔNG hoạt động đêm nay.";
         // Store this to send to detective specifically? 
         // Implementation detail: Append to room.privateMessages?
+        // Temporary hack: log to main log but only readable effectively if we had private channels.
+        // Since we don't have private channels yet, we will just log it generally but this ruins secrecy.
+        // BETTER: Append to specific player's action response or just leave for now until private msgs implemented.
+        // For now, let's Push to generic log with specific styling or just Generic Log.
+        logs.push(`🔍 Thám tử soi: ${target.name} -> ${msg}`);
       }
     }
 

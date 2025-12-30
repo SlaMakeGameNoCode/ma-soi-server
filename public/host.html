@@ -450,6 +450,11 @@
             }
         });
 
+        socket.on('PLAYER_DISCONNECTED', () => {
+            // Trigger refresh to update online status
+            socket.emit('GET_PLAYERS');
+        });
+
         socket.on('ERROR', (data) => {
             alert(data.message);
             addLog(`❌ Lỗi: ${data.message}`);

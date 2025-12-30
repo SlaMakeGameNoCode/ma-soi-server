@@ -216,6 +216,20 @@
                 <div id="gameLogs"></div>
             </div>
         </div>
+
+        <!-- Narrator Notification Modal -->
+        <div id="narratorOverlay" class="hidden"
+            style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; display: flex; justify-content: center; align-items: center; flex-direction: column;">
+            <div style="text-align: center; color: #fff; padding: 20px;">
+                <h1 id="narTitle"
+                    style="font-size: 32px; color: #fbbf24; margin-bottom: 20px; text-transform: uppercase; text-shadow: 0 0 10px #fbbf24;">
+                    HELLO</h1>
+                <p id="narMessage"
+                    style="font-size: 20px; line-height: 1.5; color: #e2e8f0; max-width: 300px; margin: 0 auto;"></p>
+                <button class="btn btn-primary" onclick="closeNarrator()"
+                    style="margin-top: 40px; width: 200px; font-size: 18px;">OK</button>
+            </div>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -274,9 +288,40 @@
             document.getElementById('phaseDisplay').innerText = `${data.phase.toUpperCase()} ${data.day}`;
             addTypesLogs(data.logs);
             setupActionUI(data.phase);
+
+            // Narrator Popups
+            if (data.phase === 'day') {
+                showNarrator('BAN NGÀY ☀️', `Trời sáng rồi!`);
+            } else if (data.phase === 'vote') {
+                showNarrator('BỎ PHIẾU 🗳️', 'Mọi người hãy bỏ phiếu treo cổ!');
+            } else if (data.phase === 'night') {
+                showNarrator('BAN ĐÊM 🌙', `Đêm thứ ${data.day}. Các chức năng hoạt động!`);
+            } else if (data.phase === 'end') {
+                showNarrator('GAME OVER 🏁', 'Trò chơi kết thúc!');
+            }
+        });
+
+        socket.on('GAME_RESET', () => {
+            showScreen('lobby');
+            document.getElementById('gameLogs').innerHTML = ''; // Clear logs
+            showNarrator('RESET', 'Host đã reset game. Đã về lại phòng chờ.');
         });
 
         socket.on('ERROR', (data) => alert(data.message));
+
+        // --- NOTIFICATION ---
+        const narratorOverlay = document.getElementById('narratorOverlay');
+        function showNarrator(title, msg) {
+            document.getElementById('narTitle').innerText = title;
+            document.getElementById('narMessage').innerText = msg;
+            narratorOverlay.classList.remove('hidden');
+            narratorOverlay.style.display = 'flex';
+        }
+
+        window.closeNarrator = () => {
+            narratorOverlay.classList.add('hidden');
+            narratorOverlay.style.display = 'none';
+        };
 
         // --- UI FUNCTIONS ---
 

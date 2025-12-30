@@ -232,7 +232,37 @@ io.on('connection', (socket) => {
             gameManager.handleDisconnect(roomCode, playerId);
             const room = gameManager.getRoom(roomCode);
             if (room) {
+                // Broadcast updated list to room so Host and Lobby updates
+                // We need to fetch the view for the HOST (or generic public view)
+                // Actually, PLAYER_JOINED expects { players: [...] }
+                // Let's rely on each client re-requesting or just send generic view.
+                // Host needs to see updated connection status.
+                // Reuse PLAYER_JOINED event which Host already listens to.
+
+                // Ideally we send 'PLAYER_UPDATE' but let's stick to existing events if possible.
+                // Host: socket.on('PLAYER_JOINED', renderPlayers).
+                // We need to send the list.
+                // Limitation: Who do we render as? If we send generic, Host sees "???" roles?
+                // Host is special. 
+
+                // Better approach: Host already listens to PLAYER_JOINED. 
+                // We can emit PLAYER_JOINED to the ROOM.
+                // But wait, PLAYER_JOINED payload is { players }.
+                // If we send a generic list (roles hidden), Host loses role visibility?
+                // YES. Host relies on PLAYER_JOINED to update the grid.
+
+                // FIX: Send a signal for clients to RE-FETCH?
+                // Or, on disconnect, we explicitly tell Host "Hey, refresh".
+                // Host has logic: socket.on('PLAYER_JOINED', ...)
+
+                // Let's emit a NEW event 'PLAYER_LEFT' with the ID, and Host can mark it offline locally?
+                // Or Host can trigger GET_PLAYERS.
+
                 io.to(roomCode).emit('PLAYER_DISCONNECTED', { playerId });
+
+                // FORCE UPDATE:
+                // Also emit a "REFRESH_PLAYERS" signal?
+                // Let's modify Host to listen to PLAYER_DISCONNECTED and trigger GET_PLAYERS.
             }
             console.log(`Player ${playerId} disconnected from room ${roomCode}`);
         }

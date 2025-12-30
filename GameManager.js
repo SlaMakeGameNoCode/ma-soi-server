@@ -313,35 +313,40 @@ class GameManager {
     const hunterPins = new Map(); // hunterId -> targetId
     room.actions.forEach((data, actorId) => {
       const actor = room.players.find(p => p.id === actorId);
-      if (actor && actor.role === ROLE_TYPES.HUNTER && actor.alive && data.type === 'PIN') {
-        hunterPins.set(actorId, data.targetId);
-        actor.attributes.pinnedTargetId = data.targetId;
-      }
+      const actions = Array.isArray(data) ? data : [data];
+      actions.forEach(action => {
+        if (actor && actor.role === ROLE_TYPES.HUNTER && actor.alive && action.type === 'PIN') {
+          hunterPins.set(actorId, action.targetId);
+          actor.attributes.pinnedTargetId = action.targetId;
+        }
+      });
     });
 
     // 6. Witch Logic (KILL Potion)
-    // Note: Witch CAN kill Bodyguard protected target? Usually NO.
-
-
+    console.log(`[WITCH_KILL] Checking witch kills`);
     room.actions.forEach((data, actorId) => {
       const actor = room.players.find(p => p.id === actorId);
       if (actor && actor.role === ROLE_TYPES.WITCH && actor.alive) {
-        if (data.type === 'KILL') {
-          if (!actor.attributes.hasKilled) {
-            const target = room.players.find(p => p.id === data.targetId);
-            if (target && target.alive) {
-              if (target.id === protectedTargetId) {
-                logs.push(`🛡️ ${target.name} bị tấn công nhưng được Bảo vệ cứu sống!`);
-                actor.attributes.hasKilled = true;
-              } else {
-                target.alive = false;
-                logs.push(`💀 ${target.name} đã chết một cách bí ẩn (Phù thủy).`);
-                actor.attributes.hasKilled = true;
+        const actions = Array.isArray(data) ? data : [data];
+        actions.forEach(action => {
+          console.log(`[WITCH_KILL] Witch action: type=${action.type}, targetId=${action.targetId}`);
+          if (action.type === 'KILL') {
+            if (!actor.attributes.hasKilled) {
+              const target = room.players.find(p => p.id === action.targetId);
+              if (target && target.alive) {
+                if (action.targetId === protectedTargetId) {
+                  logs.push(`🛡️ ${target.name} bị tấn công nhưng được Bảo vệ cứu sống!`);
+                  actor.attributes.hasKilled = true;
+                } else {
+                  target.alive = false;
+                  logs.push(`💀 ${target.name} đã chết một cách bí ẩn (Phù thủy).`);
+                  actor.attributes.hasKilled = true;
+                  console.log(`[WITCH_KILL] SUCCESS! Killed ${target.name}`);
+                }
               }
             }
           }
-        }
-        // SAVE logic moved earlier (before wolf kill application)
+        });
       }
     });
 

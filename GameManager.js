@@ -600,17 +600,23 @@ class GameManager {
   }
 
   checkWin(room) {
-    const wolves = room.players.filter(p => p.alive && p.faction === FACTIONS.WOLF).length;
-    const others = room.players.filter(p => p.alive && p.faction !== FACTIONS.WOLF).length;
+    // CRITICAL: Exclude Host from win condition checks
+    // Host has alive=true but doesn't participate in the game
+    const wolves = room.players.filter(p => !p.isHost && p.alive && p.faction === FACTIONS.WOLF).length;
+    const others = room.players.filter(p => !p.isHost && p.alive && p.faction !== FACTIONS.WOLF).length;
+
+    console.log(`[WIN_CHECK] Wolves: ${wolves}, Others: ${others}`);
 
     if (wolves === 0) {
       room.winner = 'VILLAGERS';
       room.phase = 'end';
       room.actionLog.push('🏆 DÂN LÀNG CHIẾN THẮNG!');
+      console.log('[WIN_CHECK] Villagers win - no wolves left');
     } else if (wolves >= others) {
       room.winner = 'WOLVES';
       room.phase = 'end';
       room.actionLog.push('🐺 SÓI ĐÃ CHIẾN THẮNG!');
+      console.log('[WIN_CHECK] Wolves win - wolves >= others');
     }
   }
 

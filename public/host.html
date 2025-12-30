@@ -356,6 +356,32 @@
                 return;
             }
 
+            // Check Game Balance
+            // Actual Playable Players
+            // Host is NOT included in playable count.
+            const playableCount = players;
+
+            // Count Wolves
+            const wolfCount = roles.wolf.count + roles.alphaWolf.count;
+
+            // Non-Wolves = Total Playable - Wolves
+            // (We don't just use configured villagers, because unassigned slots become villagers)
+            const nonWolfCount = playableCount - wolfCount;
+
+            // 1. Instant Win Check: Wolves >= Non-Wolves
+            if (wolfCount >= nonWolfCount) {
+                alert(`⚠️ KHÔNG THỂ BẮT ĐẦU!\nSố lượng Sói (${wolfCount}) >= Dân (${nonWolfCount}).\nSói sẽ thắng ngay lập tức. Hãy giảm số Sói hoặc thêm người chơi.`);
+                return;
+            }
+
+            // 2. Imbalance Warning: Night 1 Win scenario
+            // If Wolves + 1 >= Non-Wolves - 1 (Game ends after 1 kill)
+            if (wolfCount >= nonWolfCount - 1) {
+                if (!confirm(`⚠️ CẢNH BÁO MẤT CÂN BẰNG!\nSói (${wolfCount}) vs Dân (${nonWolfCount}).\nChỉ cần 1 Dân chết đêm đầu là Sói thắng ngay.\nBạn có chắc chắn muốn chơi?`)) {
+                    return;
+                }
+            }
+
             socket.emit('START_GAME', {
                 roomCode: currentRoomCode,
                 roleConfig: roles

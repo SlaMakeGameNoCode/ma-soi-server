@@ -110,6 +110,7 @@
             padding: 20px;
             background: #1e293b;
             margin-bottom: 20px;
+            position: relative;
         }
 
         .role-title {
@@ -122,6 +123,103 @@
         .role-desc {
             color: #94a3b8;
             font-size: 14px;
+        }
+
+        .guide-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .guide-btn:hover {
+            background: #2563eb;
+            transform: scale(1.1);
+        }
+
+        .role-guide-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2500;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .role-guide-content {
+            background: #1e293b;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 25px;
+            border: 2px solid #3b82f6;
+        }
+
+        .role-guide-content h2 {
+            color: #fbbf24;
+            margin-bottom: 15px;
+            font-size: 28px;
+            text-align: center;
+        }
+
+        .role-guide-content h3 {
+            color: #3b82f6;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .role-guide-content p {
+            color: #cbd5e1;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .role-guide-content ul {
+            color: #cbd5e1;
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+
+        .role-guide-content li {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .guide-close-btn {
+            width: 100%;
+            padding: 12px;
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .guide-close-btn:hover {
+            background: #dc2626;
         }
 
         .phase-indicator {
@@ -196,6 +294,7 @@
         <div id="gameScreen" class="hidden">
             <!-- Role Info -->
             <div class="card role-card">
+                <button class="guide-btn" onclick="showRoleGuide()" title="Hướng dẫn vai trò">❓</button>
                 <div class="role-title" id="roleName">---</div>
                 <div class="role-desc" id="roleDesc">---</div>
             </div>
@@ -230,6 +329,13 @@
                     style="margin-top: 40px; width: 200px; font-size: 18px;">OK</button>
             </div>
         </div>
+
+        <!-- Role Guide Modal -->
+        <div id="roleGuideModal" class="hidden role-guide-modal" onclick="if(event.target === this) closeRoleGuide()">
+            <div class="role-guide-content" id="roleGuideContent">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -242,6 +348,133 @@
         let selectedTarget = null;
         let currentPlayers = [];
         let currentPhase = 'lobby';
+
+        // Role Guide Data
+        const ROLE_GUIDES = {
+            alphaWolf: {
+                title: 'Sói Đầu Đàn 🐺',
+                faction: 'Phe Sói',
+                winCondition: 'Tiêu diệt tất cả Dân Làng hoặc số Sói bằng/nhiều hơn số Dân Làng còn lại',
+                abilities: [
+                    '<strong>KILL (Giết)</strong>: Mỗi đêm, cùng các Sói khác bỏ phiếu chọn 1 người để giết',
+                    '<strong>CURSE (Nguyền Rủa)</strong>: Chỉ dùng 1 lần duy nhất trong cả game. Nếu người bị nguyền rủa chết bởi Sói trong CÙNG ĐÊM ĐÓ, họ sẽ hồi sinh và trở thành Sói'
+                ],
+                mechanics: [
+                    'Phải phối hợp với các Sói khác để chọn mục tiêu giết',
+                    'Nếu nhiều Sói chọn khác mục tiêu, người có nhiều phiếu nhất sẽ bị giết',
+                    'Khả năng CURSE chỉ có hiệu lực nếu mục tiêu bị giết bởi Sói trong cùng đêm đó'
+                ]
+            },
+            wolf: {
+                title: 'Sói Thường 🐺',
+                faction: 'Phe Sói',
+                winCondition: 'Tiêu diệt tất cả Dân Làng hoặc số Sói bằng/nhiều hơn số Dân Làng còn lại',
+                abilities: [
+                    '<strong>KILL (Giết)</strong>: Mỗi đêm, cùng các Sói khác bỏ phiếu chọn 1 người để giết'
+                ],
+                mechanics: [
+                    'Phải phối hợp với các Sói khác (bao gồm Sói Đầu Đàn) để chọn mục tiêu',
+                    'Nếu nhiều Sói chọn khác mục tiêu, người có nhiều phiếu nhất sẽ bị giết',
+                    'Biết được ai là Sói trong nhóm'
+                ]
+            },
+            detective: {
+                title: 'Thám Tử 🕵️',
+                faction: 'Phe Dân Làng',
+                winCondition: 'Tiêu diệt tất cả Sói',
+                abilities: [
+                    '<strong>CHECK (Điều Tra)</strong>: Mỗi đêm, chọn 1 người để kiểm tra xem họ có thực hiện hành động đêm đó hay không'
+                ],
+                mechanics: [
+                    'Kết quả sẽ cho biết mục tiêu "CÓ hoạt động" hoặc "KHÔNG hoạt động"',
+                    'Các vai trò có hoạt động đêm: Sói, Sói Đầu Đàn, Thám Tử, Tiên Tri, Phù Thủy, Vệ Sĩ, Thợ Săn',
+                    'Dân Làng thường và Kẻ Phản Bội không có hoạt động đêm'
+                ]
+            },
+            seer: {
+                title: 'Tiên Tri 🔮',
+                faction: 'Phe Dân Làng',
+                winCondition: 'Tiêu diệt tất cả Sói',
+                abilities: [
+                    '<strong>CHECK (Nhìn Thấu)</strong>: Mỗi đêm, chọn 1 người để biết họ thuộc phe Sói hay phe Người'
+                ],
+                mechanics: [
+                    'Kết quả sẽ cho biết mục tiêu là "SÓI 🐺" hoặc "NGƯỜI 🧑"',
+                    'Sói Đầu Đàn và Sói Thường đều được xác định là Sói',
+                    'Kẻ Phản Bội được xác định là Người (phe Trung Lập)'
+                ]
+            },
+            witch: {
+                title: 'Phù Thủy 🧙',
+                faction: 'Phe Dân Làng',
+                winCondition: 'Tiêu diệt tất cả Sói',
+                abilities: [
+                    '<strong>SAVE (Cứu)</strong>: Có 1 lọ thuốc hồi sinh, dùng 1 lần duy nhất. Có thể cứu người bị Sói giết trong đêm đó',
+                    '<strong>KILL (Giết)</strong>: Có 1 lọ thuốc độc, dùng 1 lần duy nhất. Có thể giết 1 người bất kỳ vào ban đêm'
+                ],
+                mechanics: [
+                    'Mỗi loại thuốc chỉ dùng được 1 lần trong cả game',
+                    'Có thể dùng cả 2 loại thuốc trong cùng 1 đêm',
+                    'Thuốc hồi sinh chỉ có hiệu lực với người bị Sói giết, không cứu được người bị treo cổ',
+                    'Nếu Vệ Sĩ bảo vệ người bị Phù Thủy giết, người đó sẽ sống sót (nhưng Phù Thủy vẫn mất lọ thuốc)'
+                ]
+            },
+            bodyguard: {
+                title: 'Vệ Sĩ 🛡️',
+                faction: 'Phe Dân Làng',
+                winCondition: 'Tiêu diệt tất cả Sói',
+                abilities: [
+                    '<strong>PROTECT (Bảo Vệ)</strong>: Mỗi đêm, chọn 1 người để bảo vệ khỏi mọi cái chết vào đêm đó'
+                ],
+                mechanics: [
+                    'KHÔNG được bảo vệ cùng 1 người 2 đêm liên tiếp',
+                    'Có thể tự bảo vệ bản thân',
+                    'Bảo vệ khỏi cả Sói giết VÀ Phù Thủy giết',
+                    'Không thể bảo vệ khỏi Thợ Săn kéo chết (Death Link)'
+                ]
+            },
+            hunter: {
+                title: 'Thợ Săn 🏹',
+                faction: 'Phe Dân Làng',
+                winCondition: 'Tiêu diệt tất cả Sói',
+                abilities: [
+                    '<strong>PIN (Ghim Mục Tiêu)</strong>: Mỗi đêm, chọn 1 người để ghim. Nếu Thợ Săn chết (bất kỳ lý do gì), người bị ghim sẽ chết theo'
+                ],
+                mechanics: [
+                    'Có thể thay đổi mục tiêu ghim mỗi đêm',
+                    'Death Link (Kéo chết) kích hoạt khi Thợ Săn chết bởi BẤT KỲ nguyên nhân nào: Sói giết, Phù Thủy giết, hoặc bị treo cổ',
+                    'Death Link KHÔNG THỂ NGĂN CẢN - vượt qua cả Vệ Sĩ bảo vệ',
+                    'Không thể ghim chính mình'
+                ]
+            },
+            traitor: {
+                title: 'Kẻ Phản Bội 🎭',
+                faction: 'Phe Trung Lập',
+                winCondition: 'Bị treo cổ hoặc bị Sói giết vào Ngày/Đêm 1',
+                abilities: [
+                    'Không có khả năng đặc biệt'
+                ],
+                mechanics: [
+                    'Thắng ngay lập tức nếu bị treo cổ vào Ngày 1',
+                    'Nếu sống sót qua Ngày 1, mất điều kiện thắng đặc biệt và trở thành Dân Làng thường',
+                    'Tiên Tri soi sẽ thấy là "NGƯỜI" (không phải Sói)',
+                    'Mục tiêu là cố gắng bị nghi ngờ và bị treo cổ sớm'
+                ]
+            },
+            villager: {
+                title: 'Dân Làng 🧑‍🌾',
+                faction: 'Phe Dân Làng',
+                winCondition: 'Tiêu diệt tất cả Sói',
+                abilities: [
+                    'Không có khả năng đặc biệt'
+                ],
+                mechanics: [
+                    'Không có hành động vào ban đêm',
+                    'Chỉ có thể bỏ phiếu treo cổ vào ban ngày',
+                    'Phải dựa vào quan sát và thảo luận để tìm ra Sói'
+                ]
+            }
+        };
 
         // DOM Elements
         const screens = {
@@ -560,6 +793,43 @@
         window.closeNarrator = () => {
             narratorOverlay.classList.add('hidden');
             narratorOverlay.style.display = 'none';
+        };
+
+        // --- ROLE GUIDE MODAL ---
+        window.showRoleGuide = () => {
+            if (!myRole) return;
+
+            const guide = ROLE_GUIDES[myRole];
+            if (!guide) return;
+
+            const content = document.getElementById('roleGuideContent');
+            content.innerHTML = `
+                <h2>${guide.title}</h2>
+                <p><strong>Phe:</strong> ${guide.faction}</p>
+                <p><strong>Điều kiện thắng:</strong> ${guide.winCondition}</p>
+                
+                <h3>🎯 Khả năng</h3>
+                <ul>
+                    ${guide.abilities.map(a => `<li>${a}</li>`).join('')}
+                </ul>
+                
+                <h3>⚙️ Cơ chế</h3>
+                <ul>
+                    ${guide.mechanics.map(m => `<li>${m}</li>`).join('')}
+                </ul>
+                
+                <button class="guide-close-btn" onclick="closeRoleGuide()">Đóng</button>
+            `;
+
+            const modal = document.getElementById('roleGuideModal');
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+        };
+
+        window.closeRoleGuide = () => {
+            const modal = document.getElementById('roleGuideModal');
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
         };
 
         // --- DEATH NOTIFICATION (Enhanced) ---

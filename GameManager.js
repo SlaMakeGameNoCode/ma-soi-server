@@ -226,6 +226,22 @@ class GameManager {
       }
     });
 
+    // 1.5 CRITICAL: Collect Hunter PIN actions BEFORE any deaths are processed
+    // This ensures pinnedTargetId is saved even if Hunter dies in the same night
+    console.log(`[HUNTER] Collecting PIN actions BEFORE death processing`);
+    room.actions.forEach((data, actorId) => {
+      const actor = room.players.find(p => p.id === actorId);
+      if (!actor || !actor.alive) return;
+
+      const actions = Array.isArray(data) ? data : [data];
+      actions.forEach(action => {
+        if (actor.role === ROLE_TYPES.HUNTER && action.type === 'PIN') {
+          actor.attributes.pinnedTargetId = action.targetId;
+          console.log(`[HUNTER] ${actor.name} pinned ${action.targetId} (will persist even if hunter dies)`);
+        }
+      });
+    });
+
     // 2. Determine Wolf Kill Target (Consensus)
     let killTargetId = null;
     let maxVotes = 0;
@@ -309,18 +325,7 @@ class GameManager {
     // 4. Bodyguard Logic - MOVED EARLIER (before wolf kill)
     // Protection already collected above
 
-    // 5. Hunter Logic (Collect Pins)
-    const hunterPins = new Map(); // hunterId -> targetId
-    room.actions.forEach((data, actorId) => {
-      const actor = room.players.find(p => p.id === actorId);
-      const actions = Array.isArray(data) ? data : [data];
-      actions.forEach(action => {
-        if (actor && actor.role === ROLE_TYPES.HUNTER && actor.alive && action.type === 'PIN') {
-          hunterPins.set(actorId, action.targetId);
-          actor.attributes.pinnedTargetId = action.targetId;
-        }
-      });
-    });
+    // 5. Hunter PIN collection already done at step 1.5 above
 
     // 6. Witch Logic (KILL Potion)
     console.log(`[WITCH_KILL] Checking witch kills`);
@@ -383,10 +388,15 @@ class GameManager {
     // 7. Hunter Death Check (If Hunter died tonight, kill pinned target)
     // IMPORTANT: Process this BEFORE checkWin so deaths are counted
     // Hunter death link is UNSTOPPABLE - bypasses Bodyguard protection
+    console.log(`[HUNTER] Checking death links`);
     room.players.forEach(hunter => {
+      if (hunter.role === ROLE_TYPES.HUNTER) {
+        console.log(`[HUNTER] Found hunter ${hunter.name}: alive=${hunter.alive}, pinnedTargetId=${hunter.attributes.pinnedTargetId}`);
+      }
       if (hunter.role === ROLE_TYPES.HUNTER && !hunter.alive && hunter.attributes.pinnedTargetId) {
         const targetId = hunter.attributes.pinnedTargetId;
         const target = room.players.find(p => p.id === targetId);
+        console.log(`[HUNTER] Death link check: target=${target?.name}, target.alive=${target?.alive}`);
         if (target && target.alive) {
           target.alive = false;
           logs.push(`🏹 Thợ săn ${hunter.name} chết đã kéo theo ${target.name}!`);

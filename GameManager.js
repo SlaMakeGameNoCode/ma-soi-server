@@ -121,7 +121,10 @@ class GameManager {
     });
 
     // Fill rest with Villagers
-    while (pool.length < room.players.length) {
+    // Target only non-host players
+    const playersToAssign = room.players.filter(p => !p.isHost);
+
+    while (pool.length < playersToAssign.length) {
       pool.push(ROLE_TYPES.VILLAGER);
     }
 
@@ -132,7 +135,7 @@ class GameManager {
     }
 
     // Assign
-    room.players.forEach((player, i) => {
+    playersToAssign.forEach((player, i) => {
       const role = pool[i];
       player.role = role;
       player.attributes = {}; // Reset attributes

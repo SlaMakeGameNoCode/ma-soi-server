@@ -232,18 +232,24 @@ class GameManager {
     room.actions.forEach((data, actorId) => {
       const actor = room.players.find(p => p.id === actorId);
       if (actor && actor.role === ROLE_TYPES.WITCH && actor.alive && data.type === 'SAVE') {
+        console.log(`[WITCH_SAVE] Witch ${actor.name} trying to save ${data.targetId}, wolf target: ${killTargetId}`);
         if (killTargetId && data.targetId === killTargetId && !actor.attributes.hasSaved) {
           witchSavedTarget = killTargetId;
-          logs.push(`🧙 Phù thủy đã cứu sống ai đó!`);
+          console.log(`[WITCH_SAVE] SUCCESS! Saved ${killTargetId}`);
+          // Don't log anything - keep it secret
           actor.attributes.hasSaved = true;
+        } else {
+          console.log(`[WITCH_SAVE] FAILED - killTargetId: ${killTargetId}, match: ${data.targetId === killTargetId}, hasSaved: ${actor.attributes.hasSaved}`);
         }
       }
     });
 
     // 3. Resolve Alpha Curse + Kill Interaction (AFTER Witch SAVE check)
+    console.log(`[WOLF_KILL] killTargetId: ${killTargetId}, witchSavedTarget: ${witchSavedTarget}`);
     if (killTargetId && killTargetId !== witchSavedTarget) {
       const victim = room.players.find(p => p.id === killTargetId);
       if (victim) {
+        console.log(`[WOLF_KILL] Applying kill to ${victim.name}`);
         // CURSE LOGIC: If cursed target is killed by wolves SAME NIGHT
         if (alphaCurseTarget === killTargetId) {
           // Revive & Convert
@@ -257,6 +263,10 @@ class GameManager {
       }
     } else if (!killTargetId) {
       logs.push('🌙 Không có ai bị giết đêm qua.');
+    } else {
+      // Witch saved someone - show "no one died" message
+      console.log(`[WOLF_KILL] CANCELLED by Witch save`);
+      logs.push('🌙 Không có ai chết đêm qua.');
     }
 
     // 4. Bodyguard Logic (Collect Protection)

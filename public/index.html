@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ma Sói Mobile - Join Game</title>
+    <title>Ma Sói Mobile - Player</title>
     <style>
         * {
             margin: 0;
@@ -24,26 +25,6 @@
             margin: 0 auto;
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .logo {
-            font-size: 60px;
-            margin-bottom: 10px;
-        }
-
-        h1 {
-            font-size: 28px;
-            margin-bottom: 5px;
-        }
-
-        .subtitle {
-            color: #94a3b8;
-            font-size: 14px;
-        }
-
         .card {
             background: #1e293b;
             border-radius: 12px;
@@ -52,43 +33,27 @@
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         }
 
-        .input-group {
+        h1,
+        h2 {
             margin-bottom: 15px;
+            text-align: center;
         }
 
-        label {
-            display: block;
-            color: #94a3b8;
-            font-size: 12px;
-            margin-bottom: 5px;
-            text-transform: uppercase;
+        .hidden {
+            display: none !important;
         }
 
-        input {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid #334155;
-            border-radius: 8px;
-            background: #0f172a;
-            color: #fff;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: #3b82f6;
-        }
-
+        /* Buttons */
         .btn {
             width: 100%;
-            padding: 18px;
+            padding: 16px;
             border: none;
             border-radius: 12px;
             font-size: 18px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.2s;
+            margin-bottom: 10px;
         }
 
         .btn-primary {
@@ -96,44 +61,24 @@
             color: #fff;
         }
 
-        .btn-primary:hover {
-            background: #2563eb;
-            transform: translateY(-2px);
+        .btn-danger {
+            background: #ef4444;
+            color: #fff;
         }
 
-        .btn-primary:disabled {
-            background: #334155;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .status {
-            text-align: center;
+        /* Inputs */
+        input {
+            width: 100%;
             padding: 15px;
             border-radius: 8px;
-            margin-bottom: 20px;
-            font-weight: 600;
+            border: 2px solid #334155;
+            background: #0f172a;
+            color: #fff;
+            margin-bottom: 15px;
+            font-size: 16px;
         }
 
-        .status-connecting {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .status-connected {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        .status-error {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .player-list {
-            margin-top: 20px;
-        }
-
+        /* Lobby */
         .player-item {
             display: flex;
             align-items: center;
@@ -143,237 +88,326 @@
             margin-bottom: 8px;
         }
 
-        .player-status {
+        .status-dot {
             width: 10px;
             height: 10px;
             border-radius: 50%;
             margin-right: 10px;
         }
 
-        .player-status.online {
+        .online {
             background: #10b981;
         }
 
-        .player-status.offline {
+        .offline {
             background: #ef4444;
         }
 
-        .player-name {
-            flex: 1;
-            font-size: 16px;
-        }
-
-        .player-badge {
-            font-size: 20px;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .loading {
+        /* Game UI */
+        .role-card {
             text-align: center;
-            padding: 40px;
+            border: 2px solid #3b82f6;
+            padding: 20px;
+            background: #1e293b;
+            margin-bottom: 20px;
         }
 
-        .spinner {
-            border: 3px solid #334155;
-            border-top: 3px solid #3b82f6;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
+        .role-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fbbf24;
+            margin-bottom: 5px;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .role-desc {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
+        .phase-indicator {
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            padding: 10px;
+            background: #334155;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        /* Action List */
+        .action-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .action-btn {
+            background: #0f172a;
+            padding: 15px;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: #fff;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .action-btn.selected {
+            border-color: #3b82f6;
+            background: #1e3a8a;
+        }
+
+        /* Logs */
+        #gameLogs {
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 12px;
+            color: #cbd5e1;
+            padding: 10px;
+            background: #0f172a;
+            border-radius: 8px;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
-        <!-- Join Screen -->
+        <!-- JOIN SCREEN -->
         <div id="joinScreen">
-            <div class="header">
-                <div class="logo">🐺</div>
-                <h1>Ma Sói Mobile</h1>
-                <p class="subtitle">Tham gia phòng chơi</p>
-            </div>
-
-            <div class="card">
-                <div class="input-group">
-                    <label>Mã phòng</label>
-                    <input type="text" id="roomCodeInput" placeholder="Nhập mã phòng" readonly>
-                </div>
-
-                <div class="input-group">
-                    <label>Tên của bạn</label>
-                    <input type="text" id="playerNameInput" placeholder="Nhập tên của bạn" maxlength="20">
-                </div>
-
-                <button class="btn btn-primary" id="joinBtn">Tham gia</button>
+            <div class="card" style="text-align: center;">
+                <h1 style="font-size: 40px;">🐺</h1>
+                <h2>Ma Sói Mobile</h2>
+                <input type="text" id="roomCodeInput" placeholder="Mã Phòng" readonly>
+                <input type="text" id="playerNameInput" placeholder="Tên của bạn">
+                <button class="btn btn-primary" id="joinBtn">Tham Gia</button>
             </div>
         </div>
 
-        <!-- Lobby Screen -->
+        <!-- LOBBY SCREEN -->
         <div id="lobbyScreen" class="hidden">
-            <div class="header">
-                <div class="logo">🐺</div>
-                <h1>Phòng chờ</h1>
-                <p class="subtitle" id="roomCodeDisplay"></p>
-            </div>
-
-            <div id="statusMessage" class="status status-connecting">
-                Đang kết nối...
-            </div>
-
             <div class="card">
-                <h3 style="margin-bottom: 15px;">Người chơi (<span id="playerCount">0</span>)</h3>
-                <div id="playerList" class="player-list"></div>
-            </div>
-
-            <div class="card">
-                <p style="color: #94a3b8; text-align: center;">
-                    Chờ host bắt đầu game...
-                </p>
+                <h2>Phòng Chờ</h2>
+                <p style="text-align: center; color: #fbbf24; font-size: 20px; margin-bottom: 10px;" id="lobbyRoomCode">
+                    ---</p>
+                <div id="lobbyPlayerList"></div>
+                <p style="text-align: center; color: #94a3b8; margin-top: 15px;">Chờ Host bắt đầu...</p>
             </div>
         </div>
 
-        <!-- Loading Screen -->
-        <div id="loadingScreen" class="hidden">
-            <div class="loading">
-                <div class="spinner"></div>
-                <p>Đang kết nối tới server...</p>
-                <p style="color: #94a3b8; font-size: 14px; margin-top: 10px;">
-                    Lần đầu có thể mất ~30 giây
-                </p>
+        <!-- GAME SCREEN -->
+        <div id="gameScreen" class="hidden">
+            <!-- Role Info -->
+            <div class="card role-card">
+                <div class="role-title" id="roleName">---</div>
+                <div class="role-desc" id="roleDesc">---</div>
+            </div>
+
+            <!-- Phase & Status -->
+            <div class="phase-indicator" id="phaseDisplay">NIGHT 1</div>
+
+            <!-- Action Area -->
+            <div class="card" id="actionArea">
+                <h3 id="actionTitle" style="margin-bottom: 10px;">Hành Động</h3>
+                <div id="playerSelect" class="action-list"></div>
+                <button class="btn btn-primary" id="confirmActionBtn" style="margin-top: 15px;">Xác Nhận</button>
+            </div>
+
+            <!-- Logs -->
+            <div class="card">
+                <h3>Thông Báo</h3>
+                <div id="gameLogs"></div>
             </div>
         </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        // Get room code from URL
+        const socket = io();
+
+        // State
+        let myPlayerId = null;
+        let myRole = null;
+        let selectedTarget = null;
+        let currentPlayers = [];
+
+        // DOM Elements
+        const screens = {
+            join: document.getElementById('joinScreen'),
+            lobby: document.getElementById('lobbyScreen'),
+            game: document.getElementById('gameScreen')
+        };
+
+        // URL Params
         const urlParams = new URLSearchParams(window.location.search);
         const roomCode = urlParams.get('room') || window.location.pathname.split('/join/')[1];
+        if (roomCode) document.getElementById('roomCodeInput').value = roomCode;
 
-        const joinScreen = document.getElementById('joinScreen');
-        const lobbyScreen = document.getElementById('lobbyScreen');
-        const loadingScreen = document.getElementById('loadingScreen');
-        const roomCodeInput = document.getElementById('roomCodeInput');
-        const playerNameInput = document.getElementById('playerNameInput');
-        const joinBtn = document.getElementById('joinBtn');
-        const statusMessage = document.getElementById('statusMessage');
-        const roomCodeDisplay = document.getElementById('roomCodeDisplay');
-        const playerList = document.getElementById('playerList');
-        const playerCount = document.getElementById('playerCount');
+        // --- HANDLERS ---
 
-        let socket;
-        let playerId;
+        document.getElementById('joinBtn').addEventListener('click', () => {
+            const name = document.getElementById('playerNameInput').value;
+            if (!name || !roomCode) return alert("Vui lòng nhập tên và mã phòng");
 
-        // Set room code
-        if (roomCode) {
-            roomCodeInput.value = roomCode.toUpperCase();
-        }
-
-        // Join button handler
-        joinBtn.addEventListener('click', () => {
-            const playerName = playerNameInput.value.trim();
-            if (!playerName) {
-                alert('Vui lòng nhập tên của bạn');
-                return;
-            }
-            if (!roomCode) {
-                alert('Mã phòng không hợp lệ');
-                return;
-            }
-
-            joinRoom(playerName);
+            socket.emit('JOIN_ROOM', { roomCode, playerName: name });
         });
 
-        // Enter key to join
-        playerNameInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                joinBtn.click();
-            }
+        // --- SOCKET EVENTS ---
+
+        socket.on('ROOM_CREATED', (data) => { // Handled same as Join for player
+            myPlayerId = data.playerId;
+            showScreen('lobby');
+            document.getElementById('lobbyRoomCode').innerText = data.roomCode;
         });
 
-        function joinRoom(playerName) {
-            joinScreen.classList.add('hidden');
-            loadingScreen.classList.remove('hidden');
+        socket.on('PLAYER_JOINED', (data) => {
+            currentPlayers = data.players;
+            renderLobby(data.players);
+        });
 
-            // Connect to server
-            socket = io({
-                transports: ['websocket', 'polling'],
-                reconnection: true
-            });
+        socket.on('GAME_STARTED', (data) => {
+            myRole = data.role;
+            currentPlayers = data.players;
+            showScreen('game');
+            renderRole(data.role);
+            setupActionUI('night'); // Start at night
+        });
 
-            socket.on('connect', () => {
-                console.log('Connected to server');
-                
-                // Join room
-                socket.emit('JOIN_ROOM', {
-                    roomCode: roomCode.toUpperCase(),
-                    playerName: playerName
-                });
-            });
+        socket.on('PHASE_CHANGED', (data) => {
+            document.getElementById('phaseDisplay').innerText = `${data.phase.toUpperCase()} ${data.day}`;
+            addTypesLogs(data.logs);
+            setupActionUI(data.phase);
+        });
 
-            socket.on('ROOM_CREATED', (data) => {
-                console.log('Joined room:', data);
-                playerId = data.playerId;
-                showLobby();
-            });
+        socket.on('ERROR', (data) => alert(data.message));
 
-            socket.on('PLAYER_JOINED', (data) => {
-                console.log('Players updated:', data);
-                updatePlayerList(data.players);
-            });
+        // --- UI FUNCTIONS ---
 
-            socket.on('ERROR', (data) => {
-                console.error('Error:', data);
-                showError(data.message);
-            });
-
-            socket.on('connect_error', (error) => {
-                console.error('Connection error:', error);
-                showError('Không thể kết nối tới server. Vui lòng thử lại.');
-            });
-
-            socket.on('disconnect', () => {
-                showStatus('Mất kết nối...', 'connecting');
-            });
+        function showScreen(name) {
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            screens[name].classList.remove('hidden');
         }
 
-        function showLobby() {
-            loadingScreen.classList.add('hidden');
-            lobbyScreen.classList.remove('hidden');
-            roomCodeDisplay.textContent = `Mã phòng: ${roomCode.toUpperCase()}`;
-            showStatus('Đã kết nối', 'connected');
-        }
-
-        function showStatus(message, type) {
-            statusMessage.textContent = message;
-            statusMessage.className = `status status-${type}`;
-        }
-
-        function showError(message) {
-            loadingScreen.classList.add('hidden');
-            joinScreen.classList.remove('hidden');
-            alert(message);
-        }
-
-        function updatePlayerList(players) {
-            playerCount.textContent = players.length;
-            playerList.innerHTML = players.map(player => `
+        function renderLobby(players) {
+            const container = document.getElementById('lobbyPlayerList');
+            container.innerHTML = players.map(p => `
                 <div class="player-item">
-                    <div class="player-status ${player.connected ? 'online' : 'offline'}"></div>
-                    <div class="player-name">${player.name}</div>
-                    ${player.isHost ? '<div class="player-badge">👑</div>' : ''}
+                    <div class="status-dot ${p.connected ? 'online' : 'offline'}"></div>
+                    <div>${p.name} ${p.isHost ? '(Host)' : ''}</div>
                 </div>
             `).join('');
         }
+
+        function renderRole(role) {
+            const titles = {
+                alphaWolf: 'Sói Đầu Đàn 🐺',
+                wolf: 'Sói Thường 🐺',
+                detective: 'Thám Tử 🕵️',
+                lawyer: 'Luật Sư ⚖️',
+                traitor: 'Kẻ Phản Bội 🎭',
+                villager: 'Dân Làng 🧑‍🌾'
+            };
+            const descs = {
+                alphaWolf: 'Chọn mục tiêu để NGUN RỦA (hồi sinh + hóa sói nếu chết bởi sói). Cùng sói thường chọn mục tiêu giết.',
+                wolf: 'Chọn mục tiêu để giết vào ban đêm.',
+                detective: 'Soi một người để biết họ có hành động đêm hay không.',
+                lawyer: 'Chọn một người để bảo vệ khỏi án treo cổ ngày mai.',
+                traitor: 'Cố gắng bị treo cổ hoặc bị sói cắn đêm đầu để thắng.',
+                villager: 'Ngủ và cố gắng sống sót.'
+            };
+
+            document.getElementById('roleName').innerText = titles[role] || role;
+            document.getElementById('roleDesc').innerText = descs[role] || '';
+        }
+
+        function setupActionUI(phase) {
+            const container = document.getElementById('playerSelect');
+            const title = document.getElementById('actionTitle');
+            const btn = document.getElementById('confirmActionBtn');
+            const actionArea = document.getElementById('actionArea');
+
+            container.innerHTML = '';
+            selectedTarget = null;
+
+            let showActions = false;
+            let actionType = '';
+
+            if (phase === 'night') {
+                if (['wolf', 'alphaWolf'].includes(myRole)) {
+                    showActions = true;
+                    title.innerHTML = 'Chọn mục tiêu <br>' +
+                        (myRole === 'alphaWolf' ?
+                            '<div style="margin-top:10px; font-size:14px;"><label><input type="radio" name="wType" value="KILL" checked> KILL</label> <label style="margin-left:15px;"><input type="radio" name="wType" value="CURSE"> CURSE (1 time)</label></div>'
+                            : '(KILL Only)');
+                    actionType = 'KILL'; // Default
+
+                    // Add listener for radio change
+                    setTimeout(() => {
+                        document.querySelectorAll('input[name="wType"]').forEach(r => {
+                            r.onchange = (e) => actionType = e.target.value;
+                        });
+                    }, 100);
+                } else if (myRole === 'detective') {
+                    showActions = true;
+                    title.innerText = 'Chọn người để SOI';
+                    actionType = 'CHECK';
+                }
+            } else if (phase === 'game' || phase === 'vote') { // Vote Phase
+                showActions = true;
+                title.innerText = 'Bỏ phiếu treo cổ';
+                actionType = 'VOTE';
+
+                // Lawyer check
+                if (myRole === 'lawyer') {
+                    // Lawyer actually acts before vote, but simplified here
+                    // Maybe add a special toggle for Lawyer?
+                }
+            }
+
+            if (!showActions) {
+                actionArea.classList.add('hidden');
+                return;
+            }
+            actionArea.classList.remove('hidden');
+
+            // Render targets (Alive players excluding self usually, but depends on role)
+            currentPlayers.filter(p => !p.isSpectator).forEach(p => { // Show all alive players
+                if (p.id === myPlayerId && actionType !== 'LAWYER_PROTECT') return; // Cannot target self usually
+
+                const div = document.createElement('div');
+                div.className = 'action-btn';
+                div.innerText = p.name;
+                div.onclick = () => {
+                    document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('selected'));
+                    div.classList.add('selected');
+                    selectedTarget = p.id;
+                };
+                container.appendChild(div);
+            });
+
+            btn.onclick = () => {
+                if (!selectedTarget) return alert('Chưa chọn mục tiêu!');
+
+                if (actionType === 'VOTE') {
+                    socket.emit('VOTE', { targetId: selectedTarget });
+                } else {
+                    // Start of complex role logic handling on client
+                    // For Alpha Wolf, we might need 2 buttons (Kill/Curse)
+                    // For MVP: Default to KILL. 
+                    socket.emit('ACTION', { type: actionType, targetId: selectedTarget });
+                }
+
+                btn.disabled = true;
+                btn.innerText = 'Đã Gửi';
+            };
+        }
+
+        function addTypesLogs(logs) {
+            const container = document.getElementById('gameLogs');
+            logs.forEach(msg => {
+                const div = document.createElement('div');
+                div.innerText = msg;
+                container.prepend(div);
+            });
+        }
     </script>
 </body>
+
 </html>

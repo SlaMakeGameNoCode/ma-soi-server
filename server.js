@@ -118,6 +118,34 @@ io.on('connection', (socket) => {
         try {
             const actionDetails = gameManager.submitAction(roomCode, playerId, type, targetId);
 
+            // NEW: Witch Preview System
+            // When Wolf submits KILL, notify Witch immediately
+            if (type === 'KILL') {
+                const room = gameManager.getRoom(roomCode);
+                const actor = room.players.find(p => p.id === playerId);
+
+                // Check if actor is Wolf
+                if (actor && (actor.role === 'wolf' || actor.role === 'alpha_wolf')) {
+                    // Find Witch
+                    const witch = room.players.find(p => p.role === 'witch' && p.alive);
+
+                    if (witch) {
+                        // Find Witch's socket
+                        const witchSocket = Array.from(io.sockets.sockets.values())
+                            .find(s => s.data.playerId === witch.id);
+
+                        if (witchSocket) {
+                            const target = room.players.find(p => p.id === targetId);
+                            witchSocket.emit('WITCH_PREVIEW', {
+                                targetId: targetId,
+                                targetName: target ? target.name : 'Unknown'
+                            });
+                            console.log(`[WITCH_PREVIEW] Sent to ${witch.name}: ${target?.name} will die`);
+                        }
+                    }
+                }
+            }
+
             // Notify Host of progress & Action Details
             const status = gameManager.getActionStatus(roomCode);
             const room = gameManager.getRoom(roomCode);

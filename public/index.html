@@ -402,10 +402,16 @@
 
         // NEW: Witch Preview System
         socket.on('WITCH_PREVIEW', (data) => {
+            console.log('[WITCH_PREVIEW] Event received:', data);
             const me = currentPlayers.find(p => p.id === myPlayerId);
-            if (!me || me.role !== 'witch') return;
+            console.log('[WITCH_PREVIEW] My role:', me?.role);
 
-            console.log('[WITCH_PREVIEW] Received:', data);
+            if (!me || me.role !== 'witch') {
+                console.log('[WITCH_PREVIEW] Not witch or player not found, skipping');
+                return;
+            }
+
+            console.log('[WITCH_PREVIEW] Showing heal dialog');
             showWitchHealDialog(data.targetName, data.targetId);
         });
 

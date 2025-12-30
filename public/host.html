@@ -368,18 +368,19 @@
             // (We don't just use configured villagers, because unassigned slots become villagers)
             const nonWolfCount = playableCount - wolfCount;
 
-            // 1. Instant Win Check: Wolves >= Non-Wolves
-            if (wolfCount >= nonWolfCount) {
-                alert(`⚠️ KHÔNG THỂ BẮT ĐẦU!\nSố lượng Sói (${wolfCount}) >= Dân (${nonWolfCount}).\nSói sẽ thắng ngay lập tức. Hãy giảm số Sói hoặc thêm người chơi.`);
-                return;
-            }
+            // Formula: If (2 * Wolves + 1 >= TotalPlayers), then 1 Kill => Wolves Win.
+            // Explanation:
+            // Start: W wolves, H humans. Total = W+H.
+            // Night 1 Kill: W wolves, H-1 humans.
+            // Win Condition: W >= H-1.
+            // To PREVENT instant win, we need W < H-1.
+            // W + 1 < H
+            // W + 1 < Total - W
+            // 2W + 1 < Total.
 
-            // 2. Imbalance Warning: Night 1 Win scenario
-            // If Wolves + 1 >= Non-Wolves - 1 (Game ends after 1 kill)
-            if (wolfCount >= nonWolfCount - 1) {
-                if (!confirm(`⚠️ CẢNH BÁO MẤT CÂN BẰNG!\nSói (${wolfCount}) vs Dân (${nonWolfCount}).\nChỉ cần 1 Dân chết đêm đầu là Sói thắng ngay.\nBạn có chắc chắn muốn chơi?`)) {
-                    return;
-                }
+            if ((wolfCount * 2 + 1) >= playableCount) {
+                alert(`⚠️ KHÔNG THỂ BẮT ĐẦU!\n\nSố lượng: ${wolfCount} Sói / ${playableCount} Người chơi.\n\nNếu có 1 người chết vào đêm đầu, Sói sẽ thắng ngay lập tức (hoặc cân bằng số phiếu).\nCần ít nhất ${(wolfCount * 2 + 2)} người chơi để bắt đầu với ${wolfCount} Sói.`);
+                return;
             }
 
             socket.emit('START_GAME', {

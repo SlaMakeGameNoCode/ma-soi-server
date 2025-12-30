@@ -241,6 +241,7 @@
         let myRole = null;
         let selectedTarget = null;
         let currentPlayers = [];
+        let currentPhase = 'lobby';
 
         // DOM Elements
         const screens = {
@@ -274,20 +275,37 @@
         socket.on('PLAYER_JOINED', (data) => {
             currentPlayers = data.players;
             renderLobby(data.players);
+
+            // If in game, refresh Action UI to reflect Alive statuses
+            if (currentPhase !== 'lobby' && currentPhase !== 'end') {
+                setupActionUI(currentPhase);
+            }
         });
 
         socket.on('GAME_STARTED', (data) => {
             myRole = data.role;
             currentPlayers = data.players;
+            currentPhase = 'night';
+
+            // Get my name
+            const me = currentPlayers.find(p => p.id === myPlayerId);
+            const myName = me ? me.name : 'Bạn';
+
             showScreen('game');
-            renderRole(data.role);
+            renderRole(data.role, myName);
             setupActionUI('night'); // Start at night
         });
 
         socket.on('PHASE_CHANGED', (data) => {
-            document.getElementById('phaseDisplay').innerText = `${data.phase.toUpperCase()} ${data.day}`;
+            currentPhase = data.phase;
+            let phaseText = `${data.phase.toUpperCase()} ${data.day}`;
+            if (data.phase === 'execution_reveal') phaseText = 'KẾT QUẢ BẦU CỬ';
+
+            document.getElementById('phaseDisplay').innerText = phaseText;
             addTypesLogs(data.logs);
-            setupActionUI(data.phase);
+
+            // Sync players to define Alive status
+            socket.emit('GET_PLAYERS');
 
             // Narrator Popups
             if (data.phase === 'day') {
@@ -298,6 +316,8 @@
                 showNarrator('BAN ĐÊM 🌙', `Đêm thứ ${data.day}. Các chức năng hoạt động!`);
             } else if (data.phase === 'end') {
                 showNarrator('GAME OVER 🏁', 'Trò chơi kết thúc!');
+            } else if (data.phase === 'execution_reveal') {
+                showNarrator('KẾT QUẢ ⚖️', 'Đã có kết quả treo cổ...');
             }
         });
 
@@ -340,7 +360,7 @@
             `).join('');
         }
 
-        function renderRole(role) {
+        function renderRole(role, name) {
             const titles = {
                 alphaWolf: 'Sói Đầu Đàn 🐺',
                 wolf: 'Sói Thường 🐺',
@@ -358,7 +378,7 @@
                 villager: 'Ngủ và cố gắng sống sót.'
             };
 
-            document.getElementById('roleName').innerText = titles[role] || role;
+            document.getElementById('roleName').innerText = `${name} - ${titles[role] || role}`;
             document.getElementById('roleDesc').innerText = descs[role] || '';
         }
 
@@ -370,9 +390,22 @@
 
             container.innerHTML = '';
             selectedTarget = null;
+            btn.disabled = false;
+            btn.innerText = 'XÁC NHẬN';
 
             let showActions = false;
             let actionType = '';
+
+            // Check Alive Status
+            const me = currentPlayers.find(p => p.id === myPlayerId);
+            if (!me || !me.alive) {
+                // If dead, hide actions
+                actionArea.classList.add('hidden');
+                // Optional: Show "Spectating" status?
+                // User said "ko báo trạng thái chết". 
+                // So simply showing nothing (Spectator mode) is best.
+                return;
+            }
 
             if (phase === 'night') {
                 if (['wolf', 'alphaWolf'].includes(myRole)) {

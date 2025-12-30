@@ -414,8 +414,11 @@
             document.getElementById('phaseDisplay').innerText = 'NIGHT 1';
             document.getElementById('nextPhaseBtn').disabled = false;
             document.getElementById('nextPhaseBtn').style.backgroundColor = '';
-            addLog('🎮 GAME BẮT ĐẦU! Giai đoạn: NIGHT 1');
 
+            // Render players immediately to show roles (Host Visibility)
+            renderPlayers(data.players);
+
+            addLog('🎮 GAME BẮT ĐẦU! Giai đoạn: NIGHT 1');
             document.getElementById('actionCount').innerText = '0';
             document.getElementById('actionTotal').innerText = data.players.length;
 
@@ -423,34 +426,37 @@
         });
 
         socket.on('PHASE_CHANGED', (data) => {
-            const phaseText = (data.phase + ' ' + (data.day || '')).toUpperCase();
+            let phaseText = `${data.phase.toUpperCase()} ${data.day}`;
+            if (data.phase === 'execution_reveal') phaseText = `KẾT QUẢ BẦU CỬ (NGÀY ${data.day - 1})`;
+
             document.getElementById('phaseDisplay').innerText = phaseText;
             addLog(`Chuyển Phase: ${phaseText}`);
             document.getElementById('nextPhaseBtn').style.backgroundColor = '';
             document.getElementById('actionCount').innerText = '0';
 
-            // Popup Notification for Phase Change
-            if (data.phase === 'day') {
-                showNotification('BAN NGÀY ☀️', `Trời sáng rồi! Xem ai còn sống...`);
-            } else if (data.phase === 'vote') {
-                showNotification('BỎ PHIẾU 🗳️', 'Mọi người hãy bỏ phiếu treo cổ!');
-            } else if (data.phase === 'night') {
-                showNotification('BAN ĐÊM 🌙', `Đêm thứ ${data.day}. Các chức năng hoạt động!`);
-            } else if (data.phase === 'end') {
-                // Game End
-                showNotification('GAME OVER 🏁', 'Trò chơi kết thúc!');
-                resetGameBtn.classList.remove('hidden');
-                endGameBtn.classList.add('hidden');
-            }
-
-            // Update logs if any
             if (data.logs && Array.isArray(data.logs)) {
-                data.logs.slice(-3).forEach(l => addLog(l)); // Show last 3 relevant logs
+                data.logs.forEach(l => addLog(l));
             }
 
-            // Refresh player list to show deaths
+            // Phase Button Text
+            const nextBtn = document.getElementById('nextPhaseBtn');
+            if (data.phase === 'vote') nextBtn.innerText = 'Kết Thúc Bỏ Phiếu';
+            else if (data.phase === 'day') nextBtn.innerText = 'Chuyển Sang Bỏ Phiếu';
+            else if (data.phase === 'execution_reveal') nextBtn.innerText = 'Vào Ban Đêm';
+            else nextBtn.innerText = 'Phase Tiếp Theo';
+
+            // Notification
+            if (data.phase === 'execution_reveal') {
+                showNotification('KẾT QUẢ', 'Đã có kết quả treo cổ. Host hãy công bố!');
+            } else {
+                showNotification('PHASE MỚI', `Chuyển sang: ${phaseText}`);
+            }
+
+            // Refresh list
             socket.emit('GET_PLAYERS');
         });
+
+
 
         socket.on('GAME_RESET', () => {
             // Back to lobby state

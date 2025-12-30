@@ -346,7 +346,9 @@ class GameManager {
 
     if (room.phase !== 'end') {
       room.day++;
-      room.phase = 'night';
+      // Change: Go to 'execution_reveal' instead of 'night' directly
+      room.phase = 'execution_reveal';
+      room.actionLog.push('🗣️ Chuẩn bị công bố kết quả bầu cử...');
     }
   }
 
@@ -364,6 +366,10 @@ class GameManager {
       room.actionLog.push('☀️ Thảo luận kết thúc. Bắt đầu bỏ phiếu!');
     } else if (room.phase === 'vote') {
       this.resolveVote(room);
+      // resolveVote now sets phase to 'execution_reveal' (unless game end)
+    } else if (room.phase === 'execution_reveal') {
+      room.phase = 'night';
+      room.actionLog.push('🌙 Màn đêm buông xuống...');
     }
 
     return room;

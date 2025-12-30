@@ -33,6 +33,7 @@ class GameManager {
       phase: 'lobby',
       day: 0,
       maxPlayers: 15, // Default max players (excluding host)
+      dayPhaseDuration: 60, // Default day phase duration in seconds
       players: [{
         id: hostId,
         name: hostName,
@@ -624,6 +625,21 @@ class GameManager {
     }
 
     room.maxPlayers = maxPlayers;
+    return room;
+  }
+
+  setDayPhaseDuration(roomCode, hostId, duration) {
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Không tìm thấy phòng');
+    if (!room.players.find(p => p.id === hostId && p.isHost)) throw new Error('Không có quyền Host');
+    if (room.phase !== 'lobby') throw new Error('Chỉ có thể thay đổi trong Lobby');
+
+    // Validate duration (30s to 300s / 5 minutes)
+    if (duration < 30 || duration > 300) {
+      throw new Error('Thời gian phải từ 30 đến 300 giây');
+    }
+
+    room.dayPhaseDuration = duration;
     return room;
   }
 

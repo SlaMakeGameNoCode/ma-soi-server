@@ -228,7 +228,7 @@
 
                 <!-- Max Players Configuration -->
                 <div
-                    style="background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #3b82f6;">
+                    style="background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #3b82f6;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <span style="font-weight: bold; color: #3b82f6;">👥 Số Người Chơi Tối Đa</span>
                         <div class="role-inputs">
@@ -239,6 +239,22 @@
                     </div>
                     <div style="text-align: center; margin-top: 8px; font-size: 12px; color: #94a3b8;">
                         (Không tính Host, từ 3-20 người)
+                    </div>
+                </div>
+
+                <!-- Day Phase Duration Configuration -->
+                <div
+                    style="background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #10b981;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold; color: #10b981;">⏱️ Thời Gian Thảo Luận (Ban Ngày)</span>
+                        <div class="role-inputs">
+                            <button class="role-btn" onclick="updateDayDuration(-10)">-10s</button>
+                            <span class="role-count" id="dayDurationDisplay" style="min-width: 50px;">60s</span>
+                            <button class="role-btn" onclick="updateDayDuration(10)">+10s</button>
+                        </div>
+                    </div>
+                    <div style="text-align: center; margin-top: 8px; font-size: 12px; color: #94a3b8;">
+                        (Từ 30-300 giây / 0.5-5 phút)
                     </div>
                 </div>
 
@@ -336,6 +352,20 @@
                 document.getElementById('maxPlayersDisplay').innerText = currentMaxPlayers;
                 // Send to server
                 socket.emit('SET_MAX_PLAYERS', { maxPlayers: currentMaxPlayers });
+            }
+        };
+
+        // Day Phase Duration State
+        let currentDayDuration = 60;
+
+        // Update Day Phase Duration
+        window.updateDayDuration = (change) => {
+            const newDuration = currentDayDuration + change;
+            if (newDuration >= 30 && newDuration <= 300) {
+                currentDayDuration = newDuration;
+                document.getElementById('dayDurationDisplay').innerText = `${currentDayDuration}s`;
+                // Send to server
+                socket.emit('SET_DAY_DURATION', { duration: currentDayDuration });
             }
         };
 
@@ -602,6 +632,13 @@
             currentMaxPlayers = data.maxPlayers;
             document.getElementById('maxPlayersDisplay').innerText = currentMaxPlayers;
             addLog(`👥 Số người tối đa: ${currentMaxPlayers}`);
+        });
+
+        // Day Duration Updated Handler
+        socket.on('DAY_DURATION_UPDATED', (data) => {
+            currentDayDuration = data.duration;
+            document.getElementById('dayDurationDisplay').innerText = `${currentDayDuration}s`;
+            addLog(`⏱️ Thời gian thảo luận: ${currentDayDuration}s`);
         });
 
         window.kickPlayer = (id, name) => {

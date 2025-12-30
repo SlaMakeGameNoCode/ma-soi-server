@@ -108,6 +108,19 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('SET_DAY_DURATION', ({ duration }) => {
+        const { roomCode, playerId } = socket.data;
+        try {
+            const room = gameManager.setDayPhaseDuration(roomCode, playerId, duration);
+            // Broadcast updated duration to all clients
+            io.to(roomCode).emit('DAY_DURATION_UPDATED', { duration: room.dayPhaseDuration });
+            console.log(`Day phase duration set to ${duration}s in room ${roomCode}`);
+        } catch (error) {
+            console.error('SET_DAY_DURATION error:', error);
+            socket.emit('ERROR', { message: error.message });
+        }
+    });
+
     socket.on('START_GAME', ({ roleConfig }) => {
         const { roomCode, playerId } = socket.data;
         try {
@@ -206,6 +219,13 @@ io.on('connection', (socket) => {
         const { roomCode, playerId } = socket.data;
         try {
             const room = gameManager.advancePhase(roomCode, playerId);
+
+            // Clear any existing timer when changing phase
+            if (room.phaseTimer) {
+                clearInterval(room.phaseTimer);
+                room.phaseTimer = null;
+            }
+
             io.to(roomCode).emit('PHASE_CHANGED', {
                 phase: room.phase,
                 day: room.day,
@@ -214,16 +234,12 @@ io.on('connection', (socket) => {
                 executedPlayerId: room.executedPlayerId // Send who was executed
             });
 
-            // Start auto-timer for DAY phase (60 seconds)
+            // Start auto-timer for DAY phase
             if (room.phase === 'day') {
-                console.log(`[TIMER] Starting 60s timer for DAY phase in room ${roomCode}`);
+                const duration = room.dayPhaseDuration || 60;
+                console.log(`[TIMER] Starting ${duration}s timer for DAY phase in room ${roomCode}`);
 
-                // Clear any existing timer for this room
-                if (room.phaseTimer) {
-                    clearInterval(room.phaseTimer);
-                }
-
-                let timeLeft = 60; // 60 seconds
+                let timeLeft = duration;
 
                 // Emit initial timer
                 io.to(roomCode).emit('TIMER_UPDATE', { timeLeft });
@@ -241,6 +257,10 @@ io.on('connection', (socket) => {
                         console.log(`[TIMER] Auto-advancing to VOTE phase in room ${roomCode}`);
                         try {
                             const updatedRoom = gameManager.advancePhase(roomCode, playerId);
+
+                            // Clear timer and hide UI
+                            io.to(roomCode).emit('TIMER_UPDATE', { timeLeft: -1 });
+
                             io.to(roomCode).emit('PHASE_CHANGED', {
                                 phase: updatedRoom.phase,
                                 day: updatedRoom.day,
@@ -253,6 +273,9 @@ io.on('connection', (socket) => {
                         }
                     }
                 }, 1000);
+            } else {
+                // Hide timer for non-DAY phases
+                io.to(roomCode).emit('TIMER_UPDATE', { timeLeft: -1 });
             }
         } catch (error) {
             socket.emit('ERROR', { message: error.message });

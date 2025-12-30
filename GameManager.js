@@ -162,6 +162,13 @@ class GameManager {
     const player = room.players.find(p => p.id === playerId);
     if (!player || !player.alive) throw new Error('Invalid player');
 
+    // Bodyguard Constraint: Cannot protect same person twice
+    if (player.role === ROLE_TYPES.BODYGUARD && actionType === 'PROTECT') {
+      if (player.attributes.lastProtectedId === targetId) {
+        throw new Error('Không được bảo vệ cùng 1 người 2 đêm liên tiếp!');
+      }
+    }
+
     // Store action
     // Key: playerId, Value: { type, targetId }
     room.actions.set(playerId, { type: actionType, targetId });
@@ -241,16 +248,59 @@ class GameManager {
       logs.push('🌙 Không có ai bị giết đêm qua.');
     }
 
-    // 4. Witch Logic (KILL Potion)
+    // 4. Bodyguard Logic (Collect Protection)
+    let protectedTargetId = null;
     room.actions.forEach((data, actorId) => {
       const actor = room.players.find(p => p.id === actorId);
-      if (actor && actor.role === ROLE_TYPES.WITCH && actor.alive && data.type === 'KILL') {
-        if (!actor.attributes.hasKilled) {
-          const target = room.players.find(p => p.id === data.targetId);
-          if (target && target.alive) {
-            target.alive = false;
-            logs.push(`💀 ${target.name} đã chết một cách bí ẩn (Phù thủy).`);
-            actor.attributes.hasKilled = true;
+      if (actor && actor.role === ROLE_TYPES.BODYGUARD && actor.alive && data.type === 'PROTECT') {
+        protectedTargetId = data.targetId;
+        // Validated in submitAction (lastProtectedId)
+        actor.attributes.lastProtectedId = data.targetId;
+        logs.push(`🛡️ Bảo vệ đã chọn người để bảo vệ.`);
+      }
+    });
+
+    // 5. Hunter Logic (Collect Pins)
+    const hunterPins = new Map(); // hunterId -> targetId
+    room.actions.forEach((data, actorId) => {
+      const actor = room.players.find(p => p.id === actorId);
+      if (actor && actor.role === ROLE_TYPES.HUNTER && actor.alive && data.type === 'PIN') {
+        hunterPins.set(actorId, data.targetId);
+        actor.attributes.pinnedTargetId = data.targetId;
+      }
+    });
+
+    // 6. Witch Logic (KILL Potion)
+    // Note: Witch CAN kill Bodyguard protected target? Usually NO.
+
+
+    room.actions.forEach((data, actorId) => {
+      const actor = room.players.find(p => p.id === actorId);
+      if (actor && actor.role === ROLE_TYPES.WITCH && actor.alive) {
+        if (data.type === 'KILL') {
+          if (!actor.attributes.hasKilled) {
+            const target = room.players.find(p => p.id === data.targetId);
+            if (target && target.alive) {
+              if (target.id === protectedTargetId) {
+                logs.push(`🛡️ ${target.name} bị tấn công nhưng được Bảo vệ cứu sống!`);
+                actor.attributes.hasKilled = true;
+              } else {
+                target.alive = false;
+                logs.push(`💀 ${target.name} đã chết một cách bí ẩn (Phù thủy).`);
+                actor.attributes.hasKilled = true;
+              }
+            }
+          }
+        } else if (data.type === 'SAVE') {
+          if (killTargetId && data.targetId === killTargetId) {
+            if (!actor.attributes.hasSaved) {
+              const victim = room.players.find(p => p.id === killTargetId);
+              if (victim) {
+                victim.alive = true;
+                logs.push(`🧙 Phù thủy đã cứu sống ${victim.name}!`);
+                actor.attributes.hasSaved = true;
+              }
+            }
           }
         }
       }
@@ -284,6 +334,23 @@ class GameManager {
         logs.push(`🔍 Thám tử soi: ${target.name} -> ${msg}`);
       }
     }
+
+
+    // 7. Hunter Death Check (If Hunter died tonight, kill pinned target)
+    // Who died tonight? Check 'alive' status of Hunters.
+    hunterPins.forEach((targetId, hunterId) => {
+      const hunter = room.players.find(p => p.id === hunterId);
+      // If Hunter IS NOW DEAD (set to false in steps above)
+      if (hunter && !hunter.alive) {
+        const target = room.players.find(p => p.id === targetId);
+        if (target && target.alive) {
+          // Check Bodyguard? Usually Hunter shot is Unstoppable.
+          // Spec says "If Hunter dies, pinned person dies".
+          target.alive = false;
+          logs.push(`🏹 Thợ săn ${hunter.name} chết đã kéo theo ${target.name}!`);
+        }
+      }
+    });
 
     // Cleanup
     room.actions.clear();
@@ -339,6 +406,17 @@ class GameManager {
       } else {
         victim.alive = false;
         room.actionLog.push(`⚖️ ${victim.name} đã bị treo cổ.`);
+
+        if (victim.role === ROLE_TYPES.HUNTER) {
+          const pinId = victim.attributes.pinnedTargetId;
+          if (pinId) {
+            const target = room.players.find(p => p.id === pinId);
+            if (target && target.alive) {
+              target.alive = false;
+              room.actionLog.push(`🏹 Thợ săn ${victim.name} chết đã kéo theo ${target.name}!`);
+            }
+          }
+        }
 
         // Traitor Win Logic
         if (victim.role === ROLE_TYPES.TRAITOR) {
@@ -457,8 +535,8 @@ class GameManager {
       submitted = room.votes.size;
     } else if (room.phase === 'night') {
       // Update Night Roles
-      const nightRoles = [ROLE_TYPES.ALPHA_WOLF, ROLE_TYPES.WOLF, ROLE_TYPES.DETECTIVE, ROLE_TYPES.SEER, ROLE_TYPES.WITCH];
-      // Note: Hunter has no night action (passive)
+      const nightRoles = [ROLE_TYPES.ALPHA_WOLF, ROLE_TYPES.WOLF, ROLE_TYPES.DETECTIVE, ROLE_TYPES.SEER, ROLE_TYPES.WITCH, ROLE_TYPES.BODYGUARD, ROLE_TYPES.HUNTER];
+      // Hunter now has PIN action, so they are ACTIVE at night
       const activePlayers = room.players.filter(p => p.alive && nightRoles.includes(p.role));
       total = activePlayers.length;
       submitted = activePlayers.filter(p => room.actions.has(p.id)).length;

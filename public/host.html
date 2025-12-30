@@ -531,12 +531,10 @@
 
             playerList.innerHTML = players.filter(p => !p.isHost).map(p => `
                 <div class="player-card ${p.connected ? 'connected' : 'disconnected'}" style="${!p.alive ? 'opacity: 0.5; background: #330000;' : ''}">
-                    <!-- Kick Button for Offline Players -->
-                    ${!p.connected ?
-                    `<div style="text-align:right; margin-bottom:5px;">
-                            <span onclick="kickPlayer('${p.id}', '${p.name}')" style="cursor:pointer; font-size:14px; background:#450a0a; border:1px solid #ef4444; padding:2px 6px; border-radius:4px; color:#fca5a5;">❌ KICK</span>
-                        </div>`
-                    : ''}
+                    <!-- Kick Button (Always Visible) -->
+                    <div style="text-align:right; margin-bottom:5px;">
+                        <span onclick="kickPlayer('${p.id}', '${p.name}')" style="cursor:pointer; font-size:14px; background:#450a0a; border:1px solid #ef4444; padding:2px 6px; border-radius:4px; color:#fca5a5;">❌ KICK</span>
+                    </div>
                     
                     <div style="font-weight: bold;">${p.name}</div>
                     <div style="font-size: 12px; color: ${p.connected ? '#10b981' : '#ef4444'}">

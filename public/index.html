@@ -436,22 +436,50 @@
                     showActions = true;
                     title.innerText = 'Chọn người để TIÊN TRI SOI (Sói/Người?)';
                     actionType = 'CHECK';
+                } else if (myRole === 'seer') {
+                    showActions = true;
+                    title.innerText = 'Chọn người để TIÊN TRI SOI (Sói/Người?)';
+                    actionType = 'CHECK';
+                } else if (myRole === 'bodyguard') {
+                    showActions = true;
+                    title.innerText = 'Chọn người để BẢO VỆ (Không được trùng 2 đêm liên tiếp)';
+                    actionType = 'PROTECT';
+                } else if (myRole === 'hunter') {
+                    showActions = true;
+                    title.innerText = 'Chọn người để GHIM (Chết chung nếu bạn chết)';
+                    actionType = 'PIN';
                 } else if (myRole === 'witch') {
                     showActions = true;
-                    title.innerText = 'Chọn người để PHÙ THỦY GIẾT (Kill Potion)';
-                    // Witch Healing is complex, MVP only Kill
-                    actionType = 'KILL';
+                    title.innerHTML = 'PHÙ THỦY <br>' +
+                        '<div style="margin-top:10px; font-size:14px;">' +
+                        '<label><input type="radio" name="witchAction" value="KILL" checked> DÙNG ĐỘC (KILL)</label>' +
+                        '</div>';
+                    // Save potion disabled for MVP automation complexity, allow Manual Save?
+                    // User said "Host tells Witch". 
+                    // If Host tells, Witch needs to select the person to Save.
+                    // So we need a SAVE option.
+
+                    // Add Save Option
+                    title.innerHTML = 'PHÙ THỦY <br>' +
+                        '<div style="margin-top:10px; font-size:14px;">' +
+                        '<label><input type="radio" name="witchAction" value="KILL" checked> GIẾT (Độc)</label>' +
+                        '<label style="margin-left:10px;"><input type="radio" name="witchAction" value="SAVE"> CỨU (Hồi sinh)</label>' +
+                        '</div>';
+
+                    actionType = 'KILL'; // Default
+
+                    setTimeout(() => {
+                        document.querySelectorAll('input[name="witchAction"]').forEach(r => {
+                            r.onchange = (e) => actionType = e.target.value;
+                        });
+                    }, 100);
                 }
             } else if (phase === 'game' || phase === 'vote') { // Vote Phase
                 showActions = true;
                 title.innerText = 'Bỏ phiếu treo cổ';
                 actionType = 'VOTE';
 
-                // Lawyer check
-                if (myRole === 'lawyer') {
-                    // Lawyer actually acts before vote, but simplified here
-                    // Maybe add a special toggle for Lawyer?
-                }
+                // Lawyer check logic...
             }
 
             if (!showActions) {
@@ -462,7 +490,14 @@
 
             // Render targets (Alive players excluding self and Host)
             currentPlayers.filter(p => !p.isHost).forEach(p => {
-                if (p.id === myPlayerId && actionType !== 'LAWYER_PROTECT') return; // Cannot target self usually
+                // Self-targeting allowed?
+                // Bodyguard: Can protect self? Usually yes.
+                // Witch: Can save self? Usually yes (once).
+                // Hunter: Pin self? No.
+                if (p.id === myPlayerId) {
+                    if (actionType === 'PIN') return; // Hunter cant pin self
+                    // Others allowed
+                }
 
                 const div = document.createElement('div');
                 div.className = 'action-btn';
@@ -481,9 +516,6 @@
                 if (actionType === 'VOTE') {
                     socket.emit('VOTE', { targetId: selectedTarget });
                 } else {
-                    // Start of complex role logic handling on client
-                    // For Alpha Wolf, we might need 2 buttons (Kill/Curse)
-                    // For MVP: Default to KILL. 
                     socket.emit('ACTION', { type: actionType, targetId: selectedTarget });
                 }
 

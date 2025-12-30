@@ -6,6 +6,7 @@ const ROLE_TYPES = {
   DETECTIVE: 'detective',
   SEER: 'seer',
   WITCH: 'witch',
+  BODYGUARD: 'bodyguard',
   HUNTER: 'hunter',
   LAWYER: 'lawyer',
   TRAITOR: 'traitor',

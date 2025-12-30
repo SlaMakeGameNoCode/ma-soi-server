@@ -171,8 +171,17 @@ class GameManager {
     }
 
     // Store action
-    // Key: playerId, Value: { type, targetId }
-    room.actions.set(playerId, { type: actionType, targetId });
+    // Special case: Witch can have multiple actions (SAVE + KILL)
+    if (player.role === ROLE_TYPES.WITCH) {
+      // Get existing actions or create new array
+      const existingActions = room.actions.get(playerId) || [];
+      // Add new action to array
+      existingActions.push({ type: actionType, targetId });
+      room.actions.set(playerId, existingActions);
+    } else {
+      // Other roles: single action
+      room.actions.set(playerId, { type: actionType, targetId });
+    }
     player.hasVoted = true;
 
     // Return sensitive details for Host Log
@@ -233,12 +242,16 @@ class GameManager {
     console.log(`[BODYGUARD] Checking protection, total actions: ${room.actions.size}`);
     room.actions.forEach((data, actorId) => {
       const actor = room.players.find(p => p.id === actorId);
-      console.log(`[BODYGUARD] Action from ${actorId}: type=${data.type}, role=${actor?.role}`);
-      if (actor && actor.role === ROLE_TYPES.BODYGUARD && actor.alive && data.type === 'PROTECT') {
-        protectedTargetId = data.targetId;
-        actor.attributes.lastProtectedId = data.targetId;
-        console.log(`[BODYGUARD] Protected ${data.targetId}`);
-      }
+      // Handle both single action (object) and multiple actions (array for Witch)
+      const actions = Array.isArray(data) ? data : [data];
+      actions.forEach(action => {
+        console.log(`[BODYGUARD] Action from ${actorId}: type=${action.type}, role=${actor?.role}`);
+        if (actor && actor.role === ROLE_TYPES.BODYGUARD && actor.alive && action.type === 'PROTECT') {
+          protectedTargetId = action.targetId;
+          actor.attributes.lastProtectedId = action.targetId;
+          console.log(`[BODYGUARD] Protected ${action.targetId}`);
+        }
+      });
     });
 
     // 2.5 Check Witch SAVE (BEFORE applying wolf kill)
@@ -246,18 +259,21 @@ class GameManager {
     console.log(`[WITCH_SAVE] Checking saves, total actions: ${room.actions.size}`);
     room.actions.forEach((data, actorId) => {
       const actor = room.players.find(p => p.id === actorId);
-      console.log(`[WITCH_SAVE] Action from ${actorId}: type=${data.type}, role=${actor?.role}, alive=${actor?.alive}`);
-      if (actor && actor.role === ROLE_TYPES.WITCH && actor.alive && data.type === 'SAVE') {
-        console.log(`[WITCH_SAVE] Witch ${actor.name} trying to save ${data.targetId}, wolf target: ${killTargetId}`);
-        if (killTargetId && data.targetId === killTargetId && !actor.attributes.hasSaved) {
-          witchSavedTarget = killTargetId;
-          console.log(`[WITCH_SAVE] SUCCESS! Saved ${killTargetId}`);
-          // Don't log anything - keep it secret
-          actor.attributes.hasSaved = true;
-        } else {
-          console.log(`[WITCH_SAVE] FAILED - killTargetId: ${killTargetId}, match: ${data.targetId === killTargetId}, hasSaved: ${actor.attributes.hasSaved}`);
+      // Handle both single action and multiple actions (array for Witch)
+      const actions = Array.isArray(data) ? data : [data];
+      actions.forEach(action => {
+        console.log(`[WITCH_SAVE] Action from ${actorId}: type=${action.type}, role=${actor?.role}, alive=${actor?.alive}`);
+        if (actor && actor.role === ROLE_TYPES.WITCH && actor.alive && action.type === 'SAVE') {
+          console.log(`[WITCH_SAVE] Witch ${actor.name} trying to save ${action.targetId}, wolf target: ${killTargetId}`);
+          if (killTargetId && action.targetId === killTargetId && !actor.attributes.hasSaved) {
+            witchSavedTarget = killTargetId;
+            console.log(`[WITCH_SAVE] SUCCESS! Saved ${killTargetId}`);
+            actor.attributes.hasSaved = true;
+          } else {
+            console.log(`[WITCH_SAVE] FAILED - killTargetId: ${killTargetId}, match: ${action.targetId === killTargetId}, hasSaved: ${actor.attributes.hasSaved}`);
+          }
         }
-      }
+      });
     });
 
     // 3. Resolve Alpha Curse + Kill Interaction (AFTER Bodyguard and Witch checks)

@@ -227,8 +227,21 @@ class GameManager {
       }
     });
 
-    // 3. Resolve Alpha Curse + Kill Interaction
-    if (killTargetId) {
+    // 2.5 Check Witch SAVE (BEFORE applying wolf kill)
+    let witchSavedTarget = null;
+    room.actions.forEach((data, actorId) => {
+      const actor = room.players.find(p => p.id === actorId);
+      if (actor && actor.role === ROLE_TYPES.WITCH && actor.alive && data.type === 'SAVE') {
+        if (killTargetId && data.targetId === killTargetId && !actor.attributes.hasSaved) {
+          witchSavedTarget = killTargetId;
+          logs.push(`🧙 Phù thủy đã cứu sống ai đó!`);
+          actor.attributes.hasSaved = true;
+        }
+      }
+    });
+
+    // 3. Resolve Alpha Curse + Kill Interaction (AFTER Witch SAVE check)
+    if (killTargetId && killTargetId !== witchSavedTarget) {
       const victim = room.players.find(p => p.id === killTargetId);
       if (victim) {
         // CURSE LOGIC: If cursed target is killed by wolves SAME NIGHT
@@ -236,15 +249,13 @@ class GameManager {
           // Revive & Convert
           victim.faction = FACTIONS.WOLF;
           logs.push(`🌙 ${victim.name} bị cắn nhưng sống sót... một cách kỳ lạ.`);
-          // Note: Spec says "Target switches faction". Role display should eventually update?
-          // For now, internal faction change.
         } else {
-          // Provide death
+          // Apply death (only if not saved by witch)
           victim.alive = false;
           logs.push(`💀 ${victim.name} đã bị Sói giết.`);
         }
       }
-    } else {
+    } else if (!killTargetId) {
       logs.push('🌙 Không có ai bị giết đêm qua.');
     }
 
@@ -291,18 +302,8 @@ class GameManager {
               }
             }
           }
-        } else if (data.type === 'SAVE') {
-          if (killTargetId && data.targetId === killTargetId) {
-            if (!actor.attributes.hasSaved) {
-              const victim = room.players.find(p => p.id === killTargetId);
-              if (victim) {
-                victim.alive = true;
-                logs.push(`🧙 Phù thủy đã cứu sống ${victim.name}!`);
-                actor.attributes.hasSaved = true;
-              }
-            }
-          }
         }
+        // SAVE logic moved earlier (before wolf kill application)
       }
     });
 

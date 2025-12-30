@@ -227,6 +227,17 @@ class GameManager {
       }
     });
 
+    // 2.1 Check Bodyguard Protection (BEFORE Witch SAVE and Wolf kill)
+    let protectedTargetId = null;
+    room.actions.forEach((data, actorId) => {
+      const actor = room.players.find(p => p.id === actorId);
+      if (actor && actor.role === ROLE_TYPES.BODYGUARD && actor.alive && data.type === 'PROTECT') {
+        protectedTargetId = data.targetId;
+        actor.attributes.lastProtectedId = data.targetId;
+        console.log(`[BODYGUARD] Protected ${data.targetId}`);
+      }
+    });
+
     // 2.5 Check Witch SAVE (BEFORE applying wolf kill)
     let witchSavedTarget = null;
     room.actions.forEach((data, actorId) => {
@@ -244,9 +255,11 @@ class GameManager {
       }
     });
 
-    // 3. Resolve Alpha Curse + Kill Interaction (AFTER Witch SAVE check)
-    console.log(`[WOLF_KILL] killTargetId: ${killTargetId}, witchSavedTarget: ${witchSavedTarget}`);
-    if (killTargetId && killTargetId !== witchSavedTarget) {
+    // 3. Resolve Alpha Curse + Kill Interaction (AFTER Bodyguard and Witch checks)
+    console.log(`[WOLF_KILL] killTargetId: ${killTargetId}, protectedTargetId: ${protectedTargetId}, witchSavedTarget: ${witchSavedTarget}`);
+
+    // Check if target is protected by Bodyguard OR saved by Witch
+    if (killTargetId && killTargetId !== witchSavedTarget && killTargetId !== protectedTargetId) {
       const victim = room.players.find(p => p.id === killTargetId);
       if (victim) {
         console.log(`[WOLF_KILL] Applying kill to ${victim.name}`);
@@ -256,30 +269,25 @@ class GameManager {
           victim.faction = FACTIONS.WOLF;
           logs.push(`🌙 ${victim.name} bị cắn nhưng sống sót... một cách kỳ lạ.`);
         } else {
-          // Apply death (only if not saved by witch)
+          // Apply death
           victim.alive = false;
           logs.push(`💀 ${victim.name} đã bị Sói giết.`);
         }
       }
     } else if (!killTargetId) {
       logs.push('🌙 Không có ai bị giết đêm qua.');
+    } else if (killTargetId === protectedTargetId) {
+      // Bodyguard protected
+      console.log(`[BODYGUARD] Protection successful!`);
+      logs.push('🌙 Không có ai chết đêm qua.');
     } else {
-      // Witch saved someone - show "no one died" message
+      // Witch saved someone
       console.log(`[WOLF_KILL] CANCELLED by Witch save`);
       logs.push('🌙 Không có ai chết đêm qua.');
     }
 
-    // 4. Bodyguard Logic (Collect Protection)
-    let protectedTargetId = null;
-    room.actions.forEach((data, actorId) => {
-      const actor = room.players.find(p => p.id === actorId);
-      if (actor && actor.role === ROLE_TYPES.BODYGUARD && actor.alive && data.type === 'PROTECT') {
-        protectedTargetId = data.targetId;
-        // Validated in submitAction (lastProtectedId)
-        actor.attributes.lastProtectedId = data.targetId;
-        logs.push(`🛡️ Bảo vệ đã chọn người để bảo vệ.`);
-      }
-    });
+    // 4. Bodyguard Logic - MOVED EARLIER (before wolf kill)
+    // Protection already collected above
 
     // 5. Hunter Logic (Collect Pins)
     const hunterPins = new Map(); // hunterId -> targetId

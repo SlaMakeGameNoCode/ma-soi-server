@@ -4,6 +4,9 @@ const ROLE_TYPES = {
   ALPHA_WOLF: 'alphaWolf',
   WOLF: 'wolf',
   DETECTIVE: 'detective',
+  SEER: 'seer',
+  WITCH: 'witch',
+  HUNTER: 'hunter',
   LAWYER: 'lawyer',
   TRAITOR: 'traitor',
   VILLAGER: 'villager'
@@ -238,28 +241,46 @@ class GameManager {
       logs.push('🌙 Không có ai bị giết đêm qua.');
     }
 
-    // 4. Detective Logic
-    // "Has night action" or "Has no night action"
-    // Roles with actions: Wolves, Alpha, Doctor/Lawyer(if night?), Seer, Detective.
-    // Spec doesn't define "night action" list clearly, assume active roles.
+    // 4. Witch Logic (KILL Potion)
+    room.actions.forEach((data, actorId) => {
+      const actor = room.players.find(p => p.id === actorId);
+      if (actor && actor.role === ROLE_TYPES.WITCH && actor.alive && data.type === 'KILL') {
+        if (!actor.attributes.hasKilled) {
+          const target = room.players.find(p => p.id === data.targetId);
+          if (target && target.alive) {
+            target.alive = false;
+            logs.push(`💀 ${target.name} đã chết một cách bí ẩn (Phù thủy).`);
+            actor.attributes.hasKilled = true;
+          }
+        }
+      }
+    });
+
+    // 5. Seer Logic
+    if (detectiveTarget) { // Reusing variable name or create new? Let's fix variable checking
+      // Detective Code ...
+    }
+
+    // Separate loop for Seer to avoid variable mixup
+    room.actions.forEach((data, actorId) => {
+      const actor = room.players.find(p => p.id === actorId);
+      if (actor && actor.role === ROLE_TYPES.SEER && actor.alive && data.type === 'CHECK') {
+        const target = room.players.find(p => p.id === data.targetId);
+        if (target) {
+          // Log result. Ideally private.
+          const isWolf = target.faction === FACTIONS.WOLF;
+          logs.push(`🔮 Tiên tri soi: ${target.name} là ${isWolf ? 'SÓI 🐺' : 'NGƯỜI 🧑'}`);
+        }
+      }
+    });
+
+    // 6. Detective Logic
+    // ... Existing Detective Code ...
     if (detectiveTarget) {
       const target = room.players.find(p => p.id === detectiveTarget);
       if (target) {
-        // Send PRIVATE message to Detective (how? Socket emission needed later)
-        // For now, log to generic log is bad (public). 
-        // We need a way to store private feedback.
-        const hasAction = [ROLE_TYPES.WOLF, ROLE_TYPES.ALPHA_WOLF, ROLE_TYPES.DETECTIVE, ROLE_TYPES.LAWYER].includes(target.role);
-        // Lawyer checks person at night? Spec says Lawyer protects from DAY execution.
-        // Assuming Lawyer acts at night to setup protection? Or during day?
-        // Let's assume Lawyer acts at NIGHT to protect for the NEXT DAY.
-
+        const hasAction = [ROLE_TYPES.WOLF, ROLE_TYPES.ALPHA_WOLF, ROLE_TYPES.DETECTIVE, ROLE_TYPES.LAWYER, ROLE_TYPES.SEER, ROLE_TYPES.WITCH].includes(target.role);
         const msg = hasAction ? "Mục tiêu CÓ hoạt động đêm nay." : "Mục tiêu KHÔNG hoạt động đêm nay.";
-        // Store this to send to detective specifically? 
-        // Implementation detail: Append to room.privateMessages?
-        // Temporary hack: log to main log but only readable effectively if we had private channels.
-        // Since we don't have private channels yet, we will just log it generally but this ruins secrecy.
-        // BETTER: Append to specific player's action response or just leave for now until private msgs implemented.
-        // For now, let's Push to generic log with specific styling or just Generic Log.
         logs.push(`🔍 Thám tử soi: ${target.name} -> ${msg}`);
       }
     }
@@ -435,7 +456,9 @@ class GameManager {
       total = room.players.filter(p => p.alive).length;
       submitted = room.votes.size;
     } else if (room.phase === 'night') {
-      const nightRoles = [ROLE_TYPES.ALPHA_WOLF, ROLE_TYPES.WOLF, ROLE_TYPES.DETECTIVE];
+      // Update Night Roles
+      const nightRoles = [ROLE_TYPES.ALPHA_WOLF, ROLE_TYPES.WOLF, ROLE_TYPES.DETECTIVE, ROLE_TYPES.SEER, ROLE_TYPES.WITCH];
+      // Note: Hunter has no night action (passive)
       const activePlayers = room.players.filter(p => p.alive && nightRoles.includes(p.role));
       total = activePlayers.length;
       submitted = activePlayers.filter(p => room.actions.has(p.id)).length;

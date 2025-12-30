@@ -365,6 +365,9 @@
                 alphaWolf: 'Sói Đầu Đàn 🐺',
                 wolf: 'Sói Thường 🐺',
                 detective: 'Thám Tử 🕵️',
+                seer: 'Tiên Tri 🔮',
+                witch: 'Phù Thủy 🧙',
+                hunter: 'Thợ Săn 🏹',
                 lawyer: 'Luật Sư ⚖️',
                 traitor: 'Kẻ Phản Bội 🎭',
                 villager: 'Dân Làng 🧑‍🌾'
@@ -373,6 +376,9 @@
                 alphaWolf: 'Chọn mục tiêu để NGUN RỦA (hồi sinh + hóa sói nếu chết bởi sói). Cùng sói thường chọn mục tiêu giết.',
                 wolf: 'Chọn mục tiêu để giết vào ban đêm.',
                 detective: 'Soi một người để biết họ có hành động đêm hay không.',
+                seer: 'Soi một người để biết họ là Sói hay Người.',
+                witch: 'Có bình thuốc để GIẾT người chơi khác vào ban đêm.',
+                hunter: 'Nếu bị giết hoặc treo cổ, danh tính sẽ được công bố (và có thể kéo theo người khác - Tùy Host).',
                 lawyer: 'Chọn một người để bảo vệ khỏi án treo cổ ngày mai.',
                 traitor: 'Cố gắng bị treo cổ hoặc bị sói cắn đêm đầu để thắng.',
                 villager: 'Ngủ và cố gắng sống sót.'
@@ -424,8 +430,17 @@
                     }, 100);
                 } else if (myRole === 'detective') {
                     showActions = true;
-                    title.innerText = 'Chọn người để SOI';
+                    title.innerText = 'Chọn người để THÁM TỬ SOI (Hoạt động?)';
                     actionType = 'CHECK';
+                } else if (myRole === 'seer') {
+                    showActions = true;
+                    title.innerText = 'Chọn người để TIÊN TRI SOI (Sói/Người?)';
+                    actionType = 'CHECK';
+                } else if (myRole === 'witch') {
+                    showActions = true;
+                    title.innerText = 'Chọn người để PHÙ THỦY GIẾT (Kill Potion)';
+                    // Witch Healing is complex, MVP only Kill
+                    actionType = 'KILL';
                 }
             } else if (phase === 'game' || phase === 'vote') { // Vote Phase
                 showActions = true;

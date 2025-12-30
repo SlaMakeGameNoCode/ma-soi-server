@@ -477,6 +477,19 @@ class GameManager {
             // "Loses special win condition".
           }
         }
+        // Mark executed player as dead
+        victim.alive = false;
+        room.executedPlayerId = targetId; // Store for client notification
+        room.actionLog.push(`⚖️ ${victim.name} đã bị treo cổ.`);
+
+        // Hunter Death Link: If Hunter is executed, pinned target dies too
+        if (victim.role === ROLE_TYPES.HUNTER && victim.attributes.pinnedTargetId) {
+          const pinnedTarget = room.players.find(p => p.id === victim.attributes.pinnedTargetId);
+          if (pinnedTarget && pinnedTarget.alive) {
+            pinnedTarget.alive = false;
+            room.actionLog.push(`🏹 Thợ săn ${victim.name} chết đã kéo theo ${pinnedTarget.name}!`);
+          }
+        }
       }
     } else {
       room.actionLog.push('⚖️ Không ai bị treo cổ.');

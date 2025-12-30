@@ -377,6 +377,7 @@ class GameManager {
 
     // 7. Hunter Death Check (If Hunter died tonight, kill pinned target)
     // IMPORTANT: Process this BEFORE checkWin so deaths are counted
+    // Hunter death link is UNSTOPPABLE - bypasses Bodyguard protection
     room.players.forEach(hunter => {
       if (hunter.role === ROLE_TYPES.HUNTER && !hunter.alive && hunter.attributes.pinnedTargetId) {
         const targetId = hunter.attributes.pinnedTargetId;
@@ -384,6 +385,7 @@ class GameManager {
         if (target && target.alive) {
           target.alive = false;
           logs.push(`🏹 Thợ săn ${hunter.name} chết đã kéo theo ${target.name}!`);
+          console.log(`[HUNTER] Death link triggered: ${target.name} dies with hunter`);
         }
       }
     });

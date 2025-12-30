@@ -326,4 +326,28 @@ const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Ma Sói Server running on port ${PORT}`);
     console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+
+    // Keep-alive mechanism for Render free tier
+    // Render sleeps after 15 minutes of no HTTP activity
+    // WebSocket connections don't count, so we need to ping ourselves
+    if (process.env.RENDER_SERVICE_NAME) {
+        console.log('🔄 Keep-alive enabled for Render hosting');
+        const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes
+
+        setInterval(() => {
+            const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+            fetch(`${url}/api/health`)
+                .then(res => {
+                    if (res.ok) {
+                        console.log('✅ Keep-alive ping successful');
+                    } else {
+                        console.log('⚠️ Keep-alive ping failed:', res.status);
+                    }
+                })
+                .catch(err => {
+                    console.log('❌ Keep-alive ping error:', err.message);
+                });
+        }, PING_INTERVAL);
+    }
 });
+

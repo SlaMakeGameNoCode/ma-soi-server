@@ -335,7 +335,7 @@ class GameManager {
               const target = room.players.find(p => p.id === action.targetId);
               if (target && target.alive) {
                 if (action.targetId === protectedTargetId) {
-                  logs.push(`🛡️ ${target.name} bị tấn công nhưng được Bảo vệ cứu sống!`);
+                  // Don't reveal Bodyguard protection to players
                   actor.attributes.hasKilled = true;
                 } else {
                   target.alive = false;

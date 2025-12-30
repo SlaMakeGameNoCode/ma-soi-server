@@ -29,6 +29,11 @@ app.get('/join/:roomCode', (req, res) => {
     res.sendFile(__dirname + '/public/index.html');
 });
 
+// Host page
+app.get('/host', (req, res) => {
+    res.sendFile(__dirname + '/public/host.html');
+});
+
 io.on('connection', (socket) => {
     console.log(`Client connected: ${socket.id}`);
 

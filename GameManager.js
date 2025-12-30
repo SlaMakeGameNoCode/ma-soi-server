@@ -459,6 +459,31 @@ class GameManager {
       if (p) p.connected = false;
     }
   }
+
+  kickPlayer(roomCode, hostId, targetId) {
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Không tìm thấy phòng');
+
+    // Validate Host
+    const host = room.players.find(p => p.id === hostId);
+    if (!host || !host.isHost) throw new Error('Không có quyền Host');
+
+    // Prevent kicking Host
+    if (hostId === targetId) throw new Error('Không thể tự kick mình');
+
+    const targetIndex = room.players.findIndex(p => p.id === targetId);
+    if (targetIndex === -1) throw new Error('Không tìm thấy người chơi');
+
+    // Remove
+    const removedPlayer = room.players[targetIndex];
+    room.players.splice(targetIndex, 1);
+
+    // Log
+    // room.actionLog.push(`👢 ${removedPlayer.name} đã bị kick khỏi phòng.`); 
+    // ^ Maybe not needed for fresh lobby log, but good for debug
+
+    return room;
+  }
 }
 
 module.exports = { GameManager, ROLE_TYPES };

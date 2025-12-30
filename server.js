@@ -208,6 +208,33 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('KICK_PLAYER', (data) => {
+        try {
+            const { roomCode, playerId } = socket.data;
+            const { targetId } = data;
+
+            gameManager.kickPlayer(roomCode, playerId, targetId);
+
+            // Broadcast update
+            io.to(roomCode).emit('PLAYER_DISCONNECTED', { playerId: targetId, kicked: true });
+
+            // Also force refresh for everyone
+            const playerView = gameManager.getPlayerView(roomCode, playerId); // Host view
+            // Actually simplest is to tell everyone to update. 
+            // Reuse PLAYER_DISCONNECTED logic or emit PLAYER_JOINED with new list?
+            // Existing logic for PLAYER_DISCONNECTED triggers GET_PLAYERS in Host.
+            // Players might need it too?
+            // Let's emit PLAYER_JOINED with updated list to force immediate update for everyone.
+            // Note: We need a generic view for players, but Host needs specific.
+            // Let's rely on GET_PLAYERS for Host and broadcast generic for now?
+            // Or just emit a "PLAYER_LEFT" event?
+            // Re-using PLAYER_DISCONNECTED is fine, Host catches it.
+
+        } catch (error) {
+            socket.emit('ERROR', { message: error.message });
+        }
+    });
+
     socket.on('GET_PLAYERS', () => {
         const { roomCode } = socket.data;
         if (roomCode) {

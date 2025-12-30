@@ -489,8 +489,23 @@ class GameManager {
     if (!room) throw new Error('Không tìm thấy phòng');
     if (!room.players.find(p => p.id === hostId && p.isHost)) throw new Error('Không có quyền Host');
 
-    room.phase = 'end';
-    room.actionLog.push('🛑 Host đã kết thúc game.');
+    // Reset to lobby instead of ending
+    room.phase = 'lobby';
+    room.day = 0;
+    room.votes.clear();
+    room.actions.clear();
+    room.winner = null;
+    room.actionLog = ['🔄 Host đã kết thúc game. Về Lobby.'];
+
+    // Reset players
+    room.players.forEach(p => {
+      p.role = null;
+      p.faction = null;
+      p.alive = true;
+      p.hasVoted = false;
+      p.attributes = {};
+    });
+
     return room;
   }
 

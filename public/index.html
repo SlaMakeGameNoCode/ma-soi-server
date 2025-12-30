@@ -394,6 +394,12 @@
             showNarrator('RESET', 'Host đã reset game. Đã về lại phòng chờ.');
         });
 
+        socket.on('HOST_LEFT', (data) => {
+            alert(data.message || 'Host đã rời phòng.');
+            // Return to join screen
+            window.location.reload();
+        });
+
         socket.on('ERROR', (data) => alert(data.message));
 
         // --- NOTIFICATION ---

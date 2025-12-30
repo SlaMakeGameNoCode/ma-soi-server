@@ -182,14 +182,16 @@ io.on('connection', (socket) => {
         console.log(`[SERVER] END_GAME received from ${playerId} in room ${roomCode}`);
         try {
             const room = gameManager.endGame(roomCode, playerId);
-            console.log(`[SERVER] Game ended. Winner: ${room.winner}, Phase: ${room.phase}`);
-            io.to(roomCode).emit('GAME_ENDED', { winner: room.winner, logs: room.actionLog });
-            // Also emit phase change to update UIs
+            console.log(`[SERVER] Game ended, resetting to lobby. Phase: ${room.phase}`);
+
+            // Send GAME_RESET to all players (including host)
+            io.to(roomCode).emit('GAME_RESET', { roomCode });
+
+            // Also emit PHASE_CHANGED to update UI
             io.to(roomCode).emit('PHASE_CHANGED', {
-                phase: room.phase,
-                day: room.day,
-                logs: room.actionLog,
-                winner: room.winner // Send winner data for game over screen
+                phase: 'lobby',
+                day: 0,
+                logs: room.actionLog
             });
         } catch (error) {
             console.error('[SERVER] END_GAME error:', error);
@@ -263,40 +265,28 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         const { roomCode, playerId } = socket.data;
         if (roomCode && playerId) {
-            gameManager.handleDisconnect(roomCode, playerId);
             const room = gameManager.getRoom(roomCode);
             if (room) {
-                // Broadcast updated list to room so Host and Lobby updates
-                // We need to fetch the view for the HOST (or generic public view)
-                // Actually, PLAYER_JOINED expects { players: [...] }
-                // Let's rely on each client re-requesting or just send generic view.
-                // Host needs to see updated connection status.
-                // Reuse PLAYER_JOINED event which Host already listens to.
+                // Check if disconnecting player is host
+                const player = room.players.find(p => p.id === playerId);
+                if (player && player.isHost) {
+                    console.log(`[SERVER] Host ${playerId} disconnected from room ${roomCode}. Closing room.`);
 
-                // Ideally we send 'PLAYER_UPDATE' but let's stick to existing events if possible.
-                // Host: socket.on('PLAYER_JOINED', renderPlayers).
-                // We need to send the list.
-                // Limitation: Who do we render as? If we send generic, Host sees "???" roles?
-                // Host is special. 
+                    // Emit HOST_LEFT to all players in room
+                    io.to(roomCode).emit('HOST_LEFT', {
+                        message: 'Host đã rời phòng. Phòng sẽ bị đóng.'
+                    });
 
-                // Better approach: Host already listens to PLAYER_JOINED. 
-                // We can emit PLAYER_JOINED to the ROOM.
-                // But wait, PLAYER_JOINED payload is { players }.
-                // If we send a generic list (roles hidden), Host loses role visibility?
-                // YES. Host relies on PLAYER_JOINED to update the grid.
-
-                // FIX: Send a signal for clients to RE-FETCH?
-                // Or, on disconnect, we explicitly tell Host "Hey, refresh".
-                // Host has logic: socket.on('PLAYER_JOINED', ...)
-
-                // Let's emit a NEW event 'PLAYER_LEFT' with the ID, and Host can mark it offline locally?
-                // Or Host can trigger GET_PLAYERS.
-
-                io.to(roomCode).emit('PLAYER_DISCONNECTED', { playerId });
-
-                // FORCE UPDATE:
-                // Also emit a "REFRESH_PLAYERS" signal?
-                // Let's modify Host to listen to PLAYER_DISCONNECTED and trigger GET_PLAYERS.
+                    // Delete room after short delay to allow message delivery
+                    setTimeout(() => {
+                        gameManager.rooms.delete(roomCode);
+                        console.log(`[SERVER] Room ${roomCode} deleted`);
+                    }, 1000);
+                } else {
+                    // Regular player disconnect
+                    gameManager.handleDisconnect(roomCode, playerId);
+                    io.to(roomCode).emit('PLAYER_DISCONNECTED', { playerId });
+                }
             }
             console.log(`Player ${playerId} disconnected from room ${roomCode}`);
         }

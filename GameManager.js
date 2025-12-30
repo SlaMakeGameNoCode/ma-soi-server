@@ -8,7 +8,6 @@ const ROLE_TYPES = {
   WITCH: 'witch',
   BODYGUARD: 'bodyguard',
   HUNTER: 'hunter',
-  LAWYER: 'lawyer',
   TRAITOR: 'traitor',
   VILLAGER: 'villager'
 };

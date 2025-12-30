@@ -16,17 +16,17 @@ const io = new Server(httpServer, {
 const gameManager = new GameManager();
 const rateLimiter = new RateLimiter();
 
+// Serve static files
+app.use(express.static('public'));
+
 // Health check endpoint
-app.get('/', (req, res) => {
-    res.json({
-        status: 'online',
-        message: 'Ma Sói Server is running',
-        timestamp: new Date().toISOString()
-    });
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok' });
 });
 
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok' });
+// Join room page
+app.get('/join/:roomCode', (req, res) => {
+    res.sendFile(__dirname + '/public/index.html');
 });
 
 io.on('connection', (socket) => {

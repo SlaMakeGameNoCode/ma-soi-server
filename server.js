@@ -52,6 +52,16 @@ app.get('/api/admin/stats', adminAuth, (req, res) => {
     const activeGames = rooms.filter(r => r.phase !== 'lobby').length;
     const uptime = Math.floor((Date.now() - serverStartTime) / 1000);
 
+    // Memory usage
+    const memUsage = process.memoryUsage();
+    const memoryUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    const memoryTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+    const memoryPercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
+
+    // CPU usage (approximate)
+    const cpuUsage = process.cpuUsage();
+    const cpuPercent = Math.min(100, Math.round((cpuUsage.user + cpuUsage.system) / 1000000 / uptime * 100));
+
     const roomsData = rooms.map(room => ({
         roomCode: room.roomCode,
         phase: room.phase,
@@ -66,6 +76,10 @@ app.get('/api/admin/stats', adminAuth, (req, res) => {
         totalPlayers,
         activeGames,
         uptime,
+        memoryUsedMB,
+        memoryTotalMB,
+        memoryPercent,
+        cpuPercent,
         rooms: roomsData
     });
 });

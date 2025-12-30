@@ -242,6 +242,14 @@
                     <div class="stat-value" id="serverUptime">--</div>
                     <div class="stat-label">Server Uptime</div>
                 </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="memoryUsage">--</div>
+                    <div class="stat-label">Memory Usage</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="cpuUsage">--</div>
+                    <div class="stat-label">CPU Usage</div>
+                </div>
             </div>
 
             <!-- Rooms Table -->
@@ -321,6 +329,16 @@
                     document.getElementById('totalPlayers').innerText = data.totalPlayers;
                     document.getElementById('activeGames').innerText = data.activeGames;
                     document.getElementById('serverUptime').innerText = formatUptime(data.uptime);
+
+                    // Memory usage
+                    const memElem = document.getElementById('memoryUsage');
+                    memElem.innerText = `${data.memoryPercent}%`;
+                    memElem.style.color = data.memoryPercent > 80 ? '#ef4444' : data.memoryPercent > 60 ? '#f59e0b' : '#3b82f6';
+
+                    // CPU usage
+                    const cpuElem = document.getElementById('cpuUsage');
+                    cpuElem.innerText = `${data.cpuPercent}%`;
+                    cpuElem.style.color = data.cpuPercent > 80 ? '#ef4444' : data.cpuPercent > 60 ? '#f59e0b' : '#3b82f6';
 
                     renderRoomsTable(data.rooms);
                 })

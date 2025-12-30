@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Sói Web - Host Dashboard</title>
+    <title>Ma Sói Host Panel</title>
     <style>
         * {
             margin: 0;
@@ -39,10 +39,9 @@
         }
 
         .hidden {
-            display: none;
+            display: none !important;
         }
 
-        /* Buttons */
         .btn {
             padding: 12px 24px;
             border: none;
@@ -78,7 +77,6 @@
             cursor: not-allowed;
         }
 
-        /* Role Config */
         .role-config-item {
             display: flex;
             justify-content: space-between;
@@ -112,7 +110,6 @@
             text-align: center;
         }
 
-        /* Player List */
         .player-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -135,7 +132,6 @@
             border-color: #ef4444;
         }
 
-        /* Logs */
         #gameLog {
             height: 200px;
             overflow-y: auto;
@@ -151,12 +147,6 @@
             color: #cbd5e1;
         }
 
-        .log-important {
-            color: #fbbf24;
-            font-weight: bold;
-        }
-
-        /* Phase Indicator */
         .phase-badge {
             display: inline-block;
             padding: 5px 10px;
@@ -174,7 +164,7 @@
         <div id="startScreen">
             <div class="card" style="text-align: center;">
                 <h1>Ma Sói Host Panel</h1>
-                <p style="color: #94a3b8; margin-bottom: 20px;">Control panel for Game Moderator</p>
+                <p style="color: #94a3b8; margin-bottom: 20px;">Bảng điều khiển cho Quản Trò</p>
                 <button class="btn btn-primary" id="createRoomBtn">Tạo Phòng Mới</button>
             </div>
         </div>
@@ -193,8 +183,8 @@
                         <span id="phaseDisplay" class="phase-badge">LOBBY</span>
                     </div>
                     <div style="text-align: right;">
-                        <div style="font-size: 24px; font-weight: bold;">0</div>
-                        <div style="font-size: 12px; color: #94a3b8;">PLAYERS</div>
+                        <div style="font-size: 24px; font-weight: bold;" id="totalPlayersHeader">0</div>
+                        <div style="font-size: 12px; color: #94a3b8;">NGƯỜI CHƠI</div>
                     </div>
                 </div>
             </div>
@@ -202,11 +192,9 @@
             <!-- Role Configuration (Only in Lobby) -->
             <div id="roleConfig" class="card">
                 <h3>Cấu Hình Vai Trò</h3>
-                <div id="rolesList">
-                    <!-- Dynamic roles will be inserted here -->
-                </div>
+                <div id="rolesList"></div>
                 <div style="text-align: center; margin-top: 10px; color: #94a3b8;">
-                    Total Roles: <span id="totalRoles">0</span> / Players: <span id="totalPlayers">0</span>
+                    Đã chọn: <span id="totalRoles">0</span> role / Người chơi: <span id="totalPlayers">0</span>
                 </div>
             </div>
 
@@ -223,7 +211,7 @@
                 <!-- Progress Indicator -->
                 <div
                     style="background: #334155; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
-                    <span style="color: #94a3b8; font-size: 14px;">ACTIONS READY</span>
+                    <span style="color: #94a3b8; font-size: 14px;">TRẠNG THÁI HÀNH ĐỘNG</span>
                     <div style="font-size: 24px; font-weight: bold; color: #3b82f6;">
                         <span id="actionCount">0</span> / <span id="actionTotal">0</span>
                     </div>
@@ -234,12 +222,25 @@
                     <button class="btn btn-secondary" id="nextPhaseBtn" disabled>Phase Tiếp Theo</button>
                 </div>
                 <button class="btn btn-danger" id="endGameBtn" style="margin-top: 10px;">Kết Thúc Game</button>
+                <button class="btn btn-warning hidden" id="resetGameBtn"
+                    style="background: #eab308; color: #000; margin-top: 10px;">🔄 RESET GAME (Về Lobby)</button>
             </div>
 
             <!-- Logs -->
             <div class="card">
                 <h3>Nhật Ký Game (Logs)</h3>
                 <div id="gameLog"></div>
+            </div>
+
+            <!-- Phase Change Notification Modal -->
+            <div id="notificationOverlay" class="hidden"
+                style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; justify-content: center; align-items: center;">
+                <div
+                    style="background: #1e293b; padding: 30px; border-radius: 12px; text-align: center; border: 2px solid #3b82f6; max-width: 90%; width: 400px;">
+                    <h2 id="notifTitle" style="font-size: 28px; margin-bottom: 20px; color: #fbbf24;">THÔNG BÁO</h2>
+                    <p id="notifMessage" style="font-size: 18px; margin-bottom: 30px;">...</p>
+                    <button class="btn btn-primary" onclick="closeNotification()">ĐÃ HIỂU</button>
+                </div>
             </div>
         </div>
     </div>
@@ -257,15 +258,18 @@
         const gameLog = document.getElementById('gameLog');
         const roleConfig = document.getElementById('roleConfig');
         const startGameBtn = document.getElementById('startGameBtn');
+        const resetGameBtn = document.getElementById('resetGameBtn');
+        const endGameBtn = document.getElementById('endGameBtn');
+        const notificationOverlay = document.getElementById('notificationOverlay');
 
         // Role State
         const roles = {
-            alphaWolf: { name: "Sói Đầu Đàn", count: 1, max: 1, min: 1 }, // Required
-            wolf: { name: "Sói Thường", count: 1, max: 8, min: 1 }, // At least 1 wolf
+            alphaWolf: { name: "Sói Đầu Đàn", count: 1, max: 1, min: 1 },
+            wolf: { name: "Sói Thường", count: 1, max: 8, min: 1 },
             detective: { name: "Thám Tử", count: 1, max: 2, min: 0 },
             lawyer: { name: "Luật Sư", count: 0, max: 1, min: 0 },
             traitor: { name: "Kẻ Phản Bội", count: 0, max: 2, min: 0 },
-            villager: { name: "Dân Làng", count: 0, max: 15, min: 1 } // Auto-fill rest
+            villager: { name: "Dân Làng", count: 0, max: 15, min: 1 }
         };
 
         // Initialize UI
@@ -302,9 +306,20 @@
         function updateTotalRoles() {
             const total = Object.values(roles).reduce((sum, r) => sum + r.count, 0);
             document.getElementById('totalRoles').innerText = total;
-            // Villager logic: Villagers fill remaining slots
-            // This is just a visual helper
         }
+
+        // Notifications
+        function showNotification(title, msg) {
+            document.getElementById('notifTitle').innerText = title;
+            document.getElementById('notifMessage').innerText = msg;
+            notificationOverlay.classList.remove('hidden');
+            notificationOverlay.style.display = 'flex';
+        }
+
+        window.closeNotification = () => {
+            notificationOverlay.classList.add('hidden');
+            notificationOverlay.style.display = 'none';
+        };
 
         // Socket Events
         document.getElementById('createRoomBtn').addEventListener('click', () => {
@@ -317,13 +332,14 @@
             startScreen.classList.add('hidden');
             dashboard.classList.remove('hidden');
             initRoleConfig();
-            addLog(`✅ Room created: ${data.roomCode}`);
+            addLog(`✅ Đã tạo phòng: ${data.roomCode}`);
         });
 
         socket.on('PLAYER_JOINED', (data) => {
             renderPlayers(data.players);
             document.getElementById('totalPlayers').innerText = data.players.length;
-            addLog(`👤 Player joined. Total: ${data.players.length}`);
+            document.getElementById('totalPlayersHeader').innerText = data.players.length;
+            addLog(`👤 Người chơi tham gia. Tổng: ${data.players.length}`);
         });
 
         // Start Game
@@ -332,13 +348,11 @@
             const players = document.querySelectorAll('.player-card').length;
             const required = Object.values(roles).reduce((sum, r) => sum + r.count, 0);
 
-            // Allow start if players > roles (fill rest with Villagers)
             if (players < required) {
                 alert(`Không đủ người chơi! Cần ít nhất ${required} người.`);
                 return;
             }
 
-            // Send config to server
             socket.emit('START_GAME', {
                 roomCode: currentRoomCode,
                 roleConfig: roles
@@ -349,26 +363,73 @@
             socket.emit('NEXT_PHASE');
         });
 
+        endGameBtn.addEventListener('click', () => {
+            if (confirm('Bạn chắc chắn muốn kết thúc game này?')) {
+                socket.emit('END_GAME');
+            }
+        });
+
+        resetGameBtn.addEventListener('click', () => {
+            if (confirm('Reset game về Lobby?')) {
+                socket.emit('RESET_GAME');
+            }
+        });
+
         socket.on('GAME_STARTED', (data) => {
             roleConfig.classList.add('hidden');
             startGameBtn.classList.add('hidden');
-            document.getElementById('phaseDisplay').innerText = 'NIGHT 1';
-            document.getElementById('nextPhaseBtn').disabled = false; // Enable phase control
-            document.getElementById('nextPhaseBtn').style.backgroundColor = ''; // Reset color
-            addLog('🎮 GAME STARTED! Phase: NIGHT 1');
+            resetGameBtn.classList.add('hidden');
+            endGameBtn.classList.remove('hidden');
 
-            // Initial counts
+            document.getElementById('phaseDisplay').innerText = 'NIGHT 1';
+            document.getElementById('nextPhaseBtn').disabled = false;
+            document.getElementById('nextPhaseBtn').style.backgroundColor = '';
+            addLog('🎮 GAME BẮT ĐẦU! Giai đoạn: NIGHT 1');
+
             document.getElementById('actionCount').innerText = '0';
             document.getElementById('actionTotal').innerText = data.players.length;
+
+            showNotification('GAME START', 'Bắt đầu giai đoạn NIGHT 1. Sói ơi dậy đi!');
         });
 
         socket.on('PHASE_CHANGED', (data) => {
-            document.getElementById('phaseDisplay').innerText = (data.phase + ' ' + (data.day || '')).toUpperCase();
-            addLog(`Changed Phase: ${data.phase}`);
-            document.getElementById('nextPhaseBtn').style.backgroundColor = ''; // Reset color
-
-            // Reset counts
+            const phaseText = (data.phase + ' ' + (data.day || '')).toUpperCase();
+            document.getElementById('phaseDisplay').innerText = phaseText;
+            addLog(`Chuyển Phase: ${phaseText}`);
+            document.getElementById('nextPhaseBtn').style.backgroundColor = '';
             document.getElementById('actionCount').innerText = '0';
+
+            // Popup Notification for Phase Change
+            if (data.phase === 'day') {
+                showNotification('BAN NGÀY ☀️', `Trời sáng rồi! Xem ai còn sống...`);
+            } else if (data.phase === 'vote') {
+                showNotification('BỎ PHIẾU 🗳️', 'Mọi người hãy bỏ phiếu treo cổ!');
+            } else if (data.phase === 'night') {
+                showNotification('BAN ĐÊM 🌙', `Đêm thứ ${data.day}. Các chức năng hoạt động!`);
+            } else if (data.phase === 'end') {
+                // Game End
+                showNotification('GAME OVER 🏁', 'Trò chơi kết thúc!');
+                resetGameBtn.classList.remove('hidden');
+                endGameBtn.classList.add('hidden');
+            }
+
+            // Update logs if any
+            if (data.logs && Array.isArray(data.logs)) {
+                data.logs.slice(-3).forEach(l => addLog(l)); // Show last 3 relevant logs
+            }
+        });
+
+        socket.on('GAME_RESET', () => {
+            // Back to lobby state
+            roleConfig.classList.remove('hidden');
+            startGameBtn.classList.remove('hidden');
+            resetGameBtn.classList.add('hidden');
+            endGameBtn.classList.remove('hidden'); // Actually only start is needed, end is hidden until start
+            endGameBtn.classList.add('hidden'); // Ensure hidden
+
+            document.getElementById('phaseDisplay').innerText = 'LOBBY';
+            addLog('🔄 Game đã reset về Lobby.');
+            showNotification('RESET', 'Game đã về Lobby. Sẵn sàng ván mới!');
         });
 
         socket.on('HOST_UPDATE', (data) => {
@@ -376,18 +437,16 @@
                 document.getElementById('actionCount').innerText = data.actionStatus.submitted;
                 document.getElementById('actionTotal').innerText = data.actionStatus.total;
 
-                // Highlight button if all ready
-                const btn = document.getElementById('nextPhaseBtn');
-                if (data.actionStatus.submitted >= data.actionStatus.total) { // or threshold
-                    btn.style.backgroundColor = '#10b981'; // Green
-                    btn.disabled = false;
+                if (data.actionStatus.submitted >= data.actionStatus.total) {
+                    document.getElementById('nextPhaseBtn').style.backgroundColor = '#10b981';
+                    document.getElementById('nextPhaseBtn').disabled = false;
                 }
             }
         });
 
         socket.on('ERROR', (data) => {
             alert(data.message);
-            addLog(`❌ Error: ${data.message}`);
+            addLog(`❌ Lỗi: ${data.message}`);
         });
 
         function renderPlayers(players) {
@@ -404,7 +463,8 @@
         function addLog(msg) {
             const div = document.createElement('div');
             div.className = 'log-entry';
-            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            const time = new Date().toLocaleTimeString('vi-VN');
+            div.innerText = `[${time}] ${msg}`;
             gameLog.prepend(div);
         }
 

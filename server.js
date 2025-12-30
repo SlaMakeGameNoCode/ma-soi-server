@@ -174,6 +174,40 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('END_GAME', () => {
+        const { roomCode, playerId } = socket.data;
+        try {
+            const room = gameManager.endGame(roomCode, playerId);
+            io.to(roomCode).emit('GAME_ENDED', { winner: room.winner, logs: room.actionLog });
+            // Also emit phase change to update UIs
+            io.to(roomCode).emit('PHASE_CHANGED', {
+                phase: room.phase,
+                day: room.day,
+                logs: room.actionLog
+            });
+        } catch (error) {
+            socket.emit('ERROR', { message: error.message });
+        }
+    });
+
+    socket.on('RESET_GAME', () => {
+        const { roomCode, playerId } = socket.data;
+        try {
+            const room = gameManager.resetGame(roomCode, playerId);
+            io.to(roomCode).emit('GAME_RESET', { roomCode });
+            // Re-emit player joined to refresh lists? 
+            // Better to emit a full refresh/lobby event
+            const playerView = gameManager.getPlayerView(roomCode, playerId);
+            io.to(roomCode).emit('PHASE_CHANGED', {
+                phase: 'lobby',
+                day: 0,
+                logs: room.actionLog
+            });
+        } catch (error) {
+            socket.emit('ERROR', { message: error.message });
+        }
+    });
+
     socket.on('disconnect', () => {
         const { roomCode, playerId } = socket.data;
         if (roomCode && playerId) {

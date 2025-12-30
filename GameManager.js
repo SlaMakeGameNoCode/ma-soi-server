@@ -217,17 +217,17 @@ class GameManager {
         if (alphaCurseTarget === killTargetId) {
           // Revive & Convert
           victim.faction = FACTIONS.WOLF;
-          logs.push(`🌙 ${victim.name} was attacked but survived... strangely.`);
+          logs.push(`🌙 ${victim.name} bị cắn nhưng sống sót... một cách kỳ lạ.`);
           // Note: Spec says "Target switches faction". Role display should eventually update?
           // For now, internal faction change.
         } else {
           // Provide death
           victim.alive = false;
-          logs.push(`💀 ${victim.name} was killed by wolves.`);
+          logs.push(`💀 ${victim.name} đã bị Sói giết.`);
         }
       }
     } else {
-      logs.push('🌙 No one was killed by wolves.');
+      logs.push('🌙 Không có ai bị giết đêm qua.');
     }
 
     // 4. Detective Logic
@@ -301,16 +301,16 @@ class GameManager {
       // Lawyer Intervention
       const protectedId = room.actions.get('LAWYER_PROTECT');
       if (protectedId === targetId) {
-        room.actionLog.push(`⚖️ Lawyer intervened! ${victim.name} is saved from execution.`);
+        room.actionLog.push(`⚖️ Luật sự can thiệp! ${victim.name} được miễn án tử.`);
       } else {
         victim.alive = false;
-        room.actionLog.push(`⚖️ ${victim.name} was executed by vote.`);
+        room.actionLog.push(`⚖️ ${victim.name} đã bị treo cổ.`);
 
         // Traitor Win Logic
         if (victim.role === ROLE_TYPES.TRAITOR) {
           if (room.day === 1) { // Night 1 or Day 1 (Day count usually starts at 1)
             room.winner = 'TRAITOR';
-            room.actionLog.push(`🎭 Traitor ${victim.name} WINS by execution!`);
+            room.actionLog.push(`🎭 Kẻ Phản Bội ${victim.name} THẮNG nhờ bị treo cổ!`);
             room.phase = 'end';
             return;
           } else {
@@ -322,7 +322,7 @@ class GameManager {
         }
       }
     } else {
-      room.actionLog.push('⚖️ No one was executed.');
+      room.actionLog.push('⚖️ Không ai bị treo cổ.');
     }
 
     room.votes.clear();
@@ -340,18 +340,52 @@ class GameManager {
   // Manual Phase Advance (Host)
   advancePhase(roomCode, hostId) {
     const room = this.rooms.get(roomCode);
-    if (!room) throw new Error('Room not found');
+    if (!room) throw new Error('Không tìm thấy phòng');
     const host = room.players.find(p => p.id === hostId);
-    if (!host || !host.isHost) throw new Error('Permission denied');
+    if (!host || !host.isHost) throw new Error('Không có quyền Host');
 
     if (room.phase === 'night') {
       this.resolveNight(room);
     } else if (room.phase === 'day') {
       room.phase = 'vote';
-      room.actionLog.push('☀️ Day discussion ended. Voting begins!');
+      room.actionLog.push('☀️ Thảo luận kết thúc. Bắt đầu bỏ phiếu!');
     } else if (room.phase === 'vote') {
       this.resolveVote(room);
     }
+
+    return room;
+  }
+
+  endGame(roomCode, hostId) {
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Không tìm thấy phòng');
+    if (!room.players.find(p => p.id === hostId && p.isHost)) throw new Error('Không có quyền Host');
+
+    room.phase = 'end';
+    room.actionLog.push('🛑 Host đã kết thúc game.');
+    return room;
+  }
+
+  resetGame(roomCode, hostId) {
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Không tìm thấy phòng');
+    if (!room.players.find(p => p.id === hostId && p.isHost)) throw new Error('Không có quyền Host');
+
+    room.phase = 'lobby';
+    room.day = 0;
+    room.votes.clear();
+    room.actions.clear();
+    room.winner = null;
+    room.actionLog = ['🔄 Game đã được reset.'];
+
+    // Reset players
+    room.players.forEach(p => {
+      p.role = null;
+      p.faction = null;
+      p.alive = true;
+      p.hasVoted = false;
+      p.attributes = {};
+    });
 
     return room;
   }
@@ -363,9 +397,11 @@ class GameManager {
     if (wolves === 0) {
       room.winner = 'VILLAGERS';
       room.phase = 'end';
+      room.actionLog.push('🏆 DÂN LÀNG CHIẾN THẮNG!');
     } else if (wolves >= others) {
       room.winner = 'WOLVES';
       room.phase = 'end';
+      room.actionLog.push('🐺 SÓI ĐÃ CHIẾN THẮNG!');
     }
   }
 

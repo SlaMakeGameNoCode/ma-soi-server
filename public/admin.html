@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ma Sói Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Login Screen */
+        .login-screen {
+            max-width: 400px;
+            margin: 100px auto;
+        }
+
+        .login-screen input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 16px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: #fff;
+            padding: 6px 12px;
+            font-size: 12px;
+            width: auto;
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+            color: #000;
+            padding: 6px 12px;
+            font-size: 12px;
+            width: auto;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #0f172a;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #334155;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #94a3b8;
+            margin-top: 5px;
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+
+        th {
+            background: #0f172a;
+            color: #3b82f6;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #0f172a;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-lobby {
+            background: #334155;
+            color: #cbd5e1;
+        }
+
+        .status-game {
+            background: #10b981;
+            color: #000;
+        }
+
+        .status-day {
+            background: #fbbf24;
+            color: #000;
+        }
+
+        .status-night {
+            background: #6366f1;
+            color: #fff;
+        }
+
+        .status-vote {
+            background: #f59e0b;
+            color: #000;
+        }
+
+        h1,
+        h2,
+        h3 {
+            margin-bottom: 15px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .refresh-btn {
+            background: #475569;
+            color: #fff;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .refresh-btn:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Login Screen -->
+        <div id="loginScreen" class="login-screen">
+            <div class="card" style="text-align: center;">
+                <h1>🔐 Admin Panel</h1>
+                <p style="color: #94a3b8; margin-bottom: 20px;">Ma Sói Server Management</p>
+                <input type="password" id="passwordInput" placeholder="Enter admin password" />
+                <button class="btn btn-primary" onclick="login()">Login</button>
+                <p id="loginError" style="color: #ef4444; margin-top: 10px; display: none;">Invalid password</p>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="hidden">
+            <div class="header">
+                <h1>📊 Admin Dashboard</h1>
+                <div>
+                    <button class="refresh-btn" onclick="refreshStats()">🔄 Refresh</button>
+                    <button class="btn-danger" onclick="logout()" style="margin-left: 10px;">Logout</button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalRooms">0</div>
+                    <div class="stat-label">Total Rooms</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalPlayers">0</div>
+                    <div class="stat-label">Total Players</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="activeGames">0</div>
+                    <div class="stat-label">Active Games</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="serverUptime">--</div>
+                    <div class="stat-label">Server Uptime</div>
+                </div>
+            </div>
+
+            <!-- Rooms Table -->
+            <div class="card">
+                <h2>🏠 Rooms</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Room Code</th>
+                            <th>Phase</th>
+                            <th>Day</th>
+                            <th>Players</th>
+                            <th>Host</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roomsTable">
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #94a3b8;">No rooms</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const ADMIN_PASSWORD = 'hunter123';
+        let socket = null;
+        let isAuthenticated = false;
+
+        // Check if already logged in
+        if (localStorage.getItem('adminAuth') === 'true') {
+            showDashboard();
+        }
+
+        function login() {
+            const password = document.getElementById('passwordInput').value;
+            if (password === ADMIN_PASSWORD) {
+                localStorage.setItem('adminAuth', 'true');
+                showDashboard();
+            } else {
+                document.getElementById('loginError').style.display = 'block';
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('adminAuth');
+            location.reload();
+        }
+
+        function showDashboard() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            isAuthenticated = true;
+
+            // Connect to Socket.IO
+            socket = io();
+
+            // Request initial stats
+            refreshStats();
+
+            // Auto-refresh every 5 seconds
+            setInterval(refreshStats, 5000);
+        }
+
+        function refreshStats() {
+            if (!isAuthenticated) return;
+
+            fetch('/api/admin/stats', {
+                headers: { 'X-Admin-Auth': 'true' }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('totalRooms').innerText = data.totalRooms;
+                    document.getElementById('totalPlayers').innerText = data.totalPlayers;
+                    document.getElementById('activeGames').innerText = data.activeGames;
+                    document.getElementById('serverUptime').innerText = formatUptime(data.uptime);
+
+                    renderRoomsTable(data.rooms);
+                })
+                .catch(err => console.error('Failed to fetch stats:', err));
+        }
+
+        function renderRoomsTable(rooms) {
+            const tbody = document.getElementById('roomsTable');
+
+            if (rooms.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #94a3b8;">No rooms</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = rooms.map(room => `
+                <tr>
+                    <td><strong>${room.roomCode}</strong></td>
+                    <td><span class="status-badge status-${room.phase}">${room.phase.toUpperCase()}</span></td>
+                    <td>${room.day}</td>
+                    <td>${room.playerCount} / ${room.maxPlayers}</td>
+                    <td>${room.hostName}</td>
+                    <td>
+                        <button class="btn-warning" onclick="viewRoom('${room.roomCode}')">View</button>
+                        <button class="btn-danger" onclick="closeRoom('${room.roomCode}')">Close</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function viewRoom(roomCode) {
+            alert(`Room Details: ${roomCode}\n\nFeature coming soon...`);
+        }
+
+        function closeRoom(roomCode) {
+            if (!confirm(`Are you sure you want to close room ${roomCode}?`)) return;
+
+            fetch('/api/admin/close-room', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Admin-Auth': 'true'
+                },
+                body: JSON.stringify({ roomCode })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.message);
+                    refreshStats();
+                })
+                .catch(err => {
+                    console.error('Failed to close room:', err);
+                    alert('Failed to close room');
+                });
+        }
+
+        function formatUptime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            return `${hours}h ${minutes}m`;
+        }
+
+        // Enter key to login
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('passwordInput')?.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') login();
+            });
+        });
+    </script>
+</body>
+
+</html>

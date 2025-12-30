@@ -687,6 +687,12 @@
             }
         });
 
+        // Admin Room Closed Handler
+        socket.on('ADMIN_ROOM_CLOSED', (data) => {
+            alert(data.message || 'Phòng đã bị đóng bởi Admin');
+            window.location.reload();
+        });
+
         // NEW: Witch Preview System
         socket.on('WITCH_PREVIEW', (data) => {
             console.log('[WITCH_PREVIEW] Event received:', data);

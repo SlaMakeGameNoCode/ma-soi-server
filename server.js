@@ -16,12 +16,83 @@ const io = new Server(httpServer, {
 const gameManager = new GameManager();
 const rateLimiter = new RateLimiter();
 
+// Server start time for uptime calculation
+const serverStartTime = Date.now();
+
 // Serve static files
 app.use(express.static('public'));
+app.use(express.json());
+
+// Admin authentication middleware
+const adminAuth = (req, res, next) => {
+    const auth = req.headers['x-admin-auth'];
+    if (auth === 'true') {
+        next();
+    } else {
+        res.status(401).json({ error: 'Unauthorized' });
+    }
+};
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
+});
+
+// Admin page
+app.get('/admin', (req, res) => {
+    res.sendFile(__dirname + '/public/admin.html');
+});
+
+// Admin API - Server Stats
+app.get('/api/admin/stats', adminAuth, (req, res) => {
+    const rooms = Array.from(gameManager.rooms.values());
+    const totalPlayers = rooms.reduce((sum, room) => {
+        return sum + room.players.filter(p => !p.isHost && p.connected).length;
+    }, 0);
+    const activeGames = rooms.filter(r => r.phase !== 'lobby').length;
+    const uptime = Math.floor((Date.now() - serverStartTime) / 1000);
+
+    const roomsData = rooms.map(room => ({
+        roomCode: room.roomCode,
+        phase: room.phase,
+        day: room.day,
+        playerCount: room.players.filter(p => !p.isHost).length,
+        maxPlayers: room.maxPlayers,
+        hostName: room.players.find(p => p.isHost)?.name || 'Unknown'
+    }));
+
+    res.json({
+        totalRooms: rooms.length,
+        totalPlayers,
+        activeGames,
+        uptime,
+        rooms: roomsData
+    });
+});
+
+// Admin API - Close Room
+app.post('/api/admin/close-room', adminAuth, (req, res) => {
+    const { roomCode } = req.body;
+
+    if (!roomCode) {
+        return res.status(400).json({ error: 'Room code required' });
+    }
+
+    const room = gameManager.rooms.get(roomCode);
+    if (!room) {
+        return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Notify all players in room
+    io.to(roomCode).emit('ADMIN_ROOM_CLOSED', {
+        message: 'Phòng đã bị đóng bởi Admin'
+    });
+
+    // Delete room
+    gameManager.rooms.delete(roomCode);
+    console.log(`[ADMIN] Room ${roomCode} closed by admin`);
+
+    res.json({ message: `Room ${roomCode} closed successfully` });
 });
 
 // Join room page

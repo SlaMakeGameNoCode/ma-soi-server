@@ -641,6 +641,12 @@
             addLog(`⏱️ Thời gian thảo luận: ${currentDayDuration}s`);
         });
 
+        // Admin Room Closed Handler
+        socket.on('ADMIN_ROOM_CLOSED', (data) => {
+            alert(data.message || 'Phòng đã bị đóng bởi Admin');
+            window.location.reload();
+        });
+
         window.kickPlayer = (id, name) => {
             if (confirm(`Bạn có chắc muốn KICK người chơi ${name} không?`)) {
                 socket.emit('KICK_PLAYER', { targetId: id });

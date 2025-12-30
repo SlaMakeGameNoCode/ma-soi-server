@@ -229,8 +229,10 @@ class GameManager {
 
     // 2.1 Check Bodyguard Protection (BEFORE Witch SAVE and Wolf kill)
     let protectedTargetId = null;
+    console.log(`[BODYGUARD] Checking protection, total actions: ${room.actions.size}`);
     room.actions.forEach((data, actorId) => {
       const actor = room.players.find(p => p.id === actorId);
+      console.log(`[BODYGUARD] Action from ${actorId}: type=${data.type}, role=${actor?.role}`);
       if (actor && actor.role === ROLE_TYPES.BODYGUARD && actor.alive && data.type === 'PROTECT') {
         protectedTargetId = data.targetId;
         actor.attributes.lastProtectedId = data.targetId;

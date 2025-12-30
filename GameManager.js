@@ -337,15 +337,12 @@ class GameManager {
 
 
     // 7. Hunter Death Check (If Hunter died tonight, kill pinned target)
-    // Who died tonight? Check 'alive' status of Hunters.
-    hunterPins.forEach((targetId, hunterId) => {
-      const hunter = room.players.find(p => p.id === hunterId);
-      // If Hunter IS NOW DEAD (set to false in steps above)
-      if (hunter && !hunter.alive) {
+    // IMPORTANT: Process this BEFORE checkWin so deaths are counted
+    room.players.forEach(hunter => {
+      if (hunter.role === ROLE_TYPES.HUNTER && !hunter.alive && hunter.attributes.pinnedTargetId) {
+        const targetId = hunter.attributes.pinnedTargetId;
         const target = room.players.find(p => p.id === targetId);
         if (target && target.alive) {
-          // Check Bodyguard? Usually Hunter shot is Unstoppable.
-          // Spec says "If Hunter dies, pinned person dies".
           target.alive = false;
           logs.push(`🏹 Thợ săn ${hunter.name} chết đã kéo theo ${target.name}!`);
         }
@@ -356,7 +353,7 @@ class GameManager {
     room.actions.clear();
     room.players.forEach(p => p.hasVoted = false);
 
-    // Check win condition after night deaths
+    // Check win condition after ALL deaths (including hunter death link)
     this.checkWin(room);
 
     // Transition to day (unless game ended)

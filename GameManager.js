@@ -243,8 +243,10 @@ class GameManager {
 
     // 2.5 Check Witch SAVE (BEFORE applying wolf kill)
     let witchSavedTarget = null;
+    console.log(`[WITCH_SAVE] Checking saves, total actions: ${room.actions.size}`);
     room.actions.forEach((data, actorId) => {
       const actor = room.players.find(p => p.id === actorId);
+      console.log(`[WITCH_SAVE] Action from ${actorId}: type=${data.type}, role=${actor?.role}, alive=${actor?.alive}`);
       if (actor && actor.role === ROLE_TYPES.WITCH && actor.alive && data.type === 'SAVE') {
         console.log(`[WITCH_SAVE] Witch ${actor.name} trying to save ${data.targetId}, wolf target: ${killTargetId}`);
         if (killTargetId && data.targetId === killTargetId && !actor.attributes.hasSaved) {

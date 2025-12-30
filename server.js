@@ -39,6 +39,18 @@ io.on('connection', (socket) => {
             socket.data.roomCode = roomCode;
             socket.data.playerId = playerId;
             socket.emit('ROOM_CREATED', { roomCode, playerId, token });
+
+            // Send initial player list to host
+            const room = gameManager.getRoom(roomCode);
+            socket.emit('PLAYER_JOINED', {
+                players: room.players.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    connected: p.connected,
+                    isHost: p.isHost
+                }))
+            });
+
             console.log(`Room created: ${roomCode} by ${playerName}`);
         } catch (error) {
             console.error('CREATE_ROOM error:', error);

@@ -186,6 +186,9 @@
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <h2>Phòng: <span id="roomCodeDisplay" style="color: #fbbf24; font-family: monospace;">---</span>
+                            <button class="btn btn-secondary" onclick="copyInviteLink()"
+                                style="width: auto; padding: 5px 10px; font-size: 12px; margin-left: 10px;">📋 Copy
+                                Link</button>
                         </h2>
                         <span id="phaseDisplay" class="phase-badge">LOBBY</span>
                     </div>
@@ -361,6 +364,17 @@
             div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
             gameLog.prepend(div);
         }
+
+        window.copyInviteLink = () => {
+            if (!currentRoomCode) return alert('Chưa tạo phòng!');
+            const url = `${window.location.origin}/join/${currentRoomCode}`;
+            navigator.clipboard.writeText(url).then(() => {
+                alert(`Đã copy link mời:\n${url}`);
+            }).catch(err => {
+                console.error('Could not copy text: ', err);
+                prompt("Copy link thủ công:", url);
+            });
+        };
     </script>
 </body>
 

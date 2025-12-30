@@ -1038,7 +1038,15 @@
 
                 const div = document.createElement('div');
                 div.className = 'action-btn';
-                div.innerText = p.name;
+
+                // Show wolf icon for other wolves (so wolves can recognize each other)
+                let displayName = p.name;
+                if ((myRole === 'wolf' || myRole === 'alphaWolf') &&
+                    (p.role === 'wolf' || p.role === 'alphaWolf')) {
+                    displayName = p.name + ' 🐺';
+                }
+
+                div.innerText = displayName;
                 div.onclick = () => {
                     document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('selected'));
                     div.classList.add('selected');

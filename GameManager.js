@@ -429,13 +429,69 @@ class GameManager {
 
   submitVote(roomCode, playerId, targetId) {
     const room = this.rooms.get(roomCode);
-    if (!room || room.phase !== 'vote') return;
+    if (!room || room.phase !== 'vote') return null;
 
     const player = room.players.find(p => p.id === playerId);
     if (player && player.alive) {
+      // Support SKIP votes (targetId can be "SKIP" or null)
       room.votes.set(playerId, targetId);
       player.hasVoted = true;
+
+      // Calculate current vote leader and get vote details
+      const voteLeader = this.getVoteLeader(room);
+      const voteDetails = this.getVoteDetails(room);
+
+      return { ...voteLeader, voteDetails };
     }
+    return null;
+  }
+
+  getVoteLeader(room) {
+    const voteCounts = new Map();
+
+    // Count votes for each player (exclude SKIP votes)
+    room.votes.forEach((targetId) => {
+      if (targetId && targetId !== 'SKIP') {
+        voteCounts.set(targetId, (voteCounts.get(targetId) || 0) + 1);
+      }
+    });
+
+    // Find player with most votes
+    let maxVotes = 0;
+    let leaderId = null;
+    let leaderName = null;
+
+    voteCounts.forEach((count, targetId) => {
+      if (count > maxVotes) {
+        maxVotes = count;
+        leaderId = targetId;
+        const target = room.players.find(p => p.id === targetId);
+        leaderName = target ? target.name : 'Unknown';
+      }
+    });
+
+    return {
+      leaderId,
+      leaderName,
+      voteCount: maxVotes,
+      totalVotes: room.votes.size
+    };
+  }
+
+  getVoteDetails(room) {
+    const details = [];
+    room.votes.forEach((targetId, voterId) => {
+      const voter = room.players.find(p => p.id === voterId);
+      const target = room.players.find(p => p.id === targetId);
+
+      details.push({
+        voterId,
+        voterName: voter ? voter.name : 'Unknown',
+        targetId,
+        targetName: targetId === 'SKIP' ? 'Bỏ qua' : (target ? target.name : 'Unknown')
+      });
+    });
+    return details;
   }
 
   // Lawyer Action (Protection)
@@ -453,8 +509,18 @@ class GameManager {
   }
 
   resolveVote(room) {
+    // Log vote details BEFORE resolution
+    const voteDetails = this.getVoteDetails(room);
+    const voteLog = voteDetails.map(v => `${v.voterName} → ${v.targetName}`).join(', ');
+    room.actionLog.push(`🗳️ Kết quả bỏ phiếu: ${voteLog}`);
+
     const votes = new Map();
-    room.votes.forEach(t => votes.set(t, (votes.get(t) || 0) + 1));
+    // Count votes, excluding SKIP
+    room.votes.forEach(t => {
+      if (t && t !== 'SKIP') {
+        votes.set(t, (votes.get(t) || 0) + 1);
+      }
+    });
 
     let max = 0;
     let targetId = null;
@@ -477,35 +543,15 @@ class GameManager {
         room.executedPlayerId = targetId; // Store for client notification
         room.actionLog.push(`⚖️ ${victim.name} đã bị treo cổ.`);
 
-        if (victim.role === ROLE_TYPES.HUNTER) {
-          const pinId = victim.attributes.pinnedTargetId;
-          if (pinId) {
-            const target = room.players.find(p => p.id === pinId);
-            if (target && target.alive) {
-              target.alive = false;
-              room.actionLog.push(`🏹 Thợ săn ${victim.name} chết đã kéo theo ${target.name}!`);
-            }
-          }
-        }
-
         // Traitor Win Logic
         if (victim.role === ROLE_TYPES.TRAITOR) {
-          if (room.day === 1) { // Night 1 or Day 1 (Day count usually starts at 1)
+          if (room.day === 1) {
             room.winner = 'TRAITOR';
             room.actionLog.push(`🎭 Kẻ Phản Bội ${victim.name} THẮNG nhờ bị treo cổ!`);
             room.phase = 'end';
             return;
-          } else {
-            // Become normal villager (logic handled implicitly, they are dead anyway?)
-            // Spec: "After Day 1: Becomes normal Villager". 
-            // This means if they survive Day 1, they change faction?
-            // "Loses special win condition".
           }
         }
-        // Mark executed player as dead
-        victim.alive = false;
-        room.executedPlayerId = targetId; // Store for client notification
-        room.actionLog.push(`⚖️ ${victim.name} đã bị treo cổ.`);
 
         // Hunter Death Link: If Hunter is executed, pinned target dies too
         if (victim.role === ROLE_TYPES.HUNTER && victim.attributes.pinnedTargetId) {
@@ -524,12 +570,10 @@ class GameManager {
     room.actions.delete('LAWYER_PROTECT'); // Clear lawyer action
 
     // Win Check BEFORE execution_reveal
-    // This prevents going to night when game is already won (e.g. 1 wolf vs 1 villager)
     this.checkWin(room);
 
     if (room.phase !== 'end') {
       room.day++;
-      // Change: Go to 'execution_reveal' instead of 'night' directly
       room.phase = 'execution_reveal';
       room.actionLog.push('🗣️ Chuẩn bị công bố kết quả bầu cử...');
     }
@@ -691,7 +735,14 @@ class GameManager {
   getPlayerView(roomCode, playerId) {
     const room = this.rooms.get(roomCode);
     if (!room) return null;
-    // ... (implementation similar to before but with roles hidden)
+
+    const requestingPlayer = room.players.find(p => p.id === playerId);
+    const isHost = requestingPlayer?.isHost || false;
+    const isDead = requestingPlayer ? !requestingPlayer.alive : false;
+
+    // Dead players and hosts see everything
+    const canSeeAll = isHost || isDead;
+
     return {
       ...room,
       players: room.players.map(p => ({
@@ -700,8 +751,8 @@ class GameManager {
         connected: p.connected,
         isHost: p.isHost,
         alive: p.alive,
-        // Show role ONLY if self OR End Game OR Host
-        role: (p.id === playerId || room.phase === 'end' || (room.players.find(h => h.id === playerId)?.isHost)) ? p.role : '???'
+        // Show role if: self, end game, host, OR dead player
+        role: (p.id === playerId || room.phase === 'end' || canSeeAll) ? p.role : '???'
       }))
     };
   }

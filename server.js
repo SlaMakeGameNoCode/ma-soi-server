@@ -261,16 +261,28 @@ io.on('connection', (socket) => {
             const status = gameManager.getActionStatus(roomCode);
             const room = gameManager.getRoom(roomCode);
             const host = room.players.find(p => p.isHost);
+
+            // Also notify dead players (they get host-like visibility)
+            const deadPlayers = room.players.filter(p => !p.alive && !p.isHost);
+            const observerSockets = [];
+
             if (host && host.connected) {
-                // Find host socket
                 const hostSocket = Array.from(io.sockets.sockets.values()).find(s => s.data.playerId === host.id);
-                if (hostSocket) {
-                    hostSocket.emit('HOST_UPDATE', {
-                        actionStatus: status,
-                        actionLog: actionDetails // New field
-                    });
-                }
+                if (hostSocket) observerSockets.push(hostSocket);
             }
+
+            deadPlayers.forEach(deadPlayer => {
+                const deadSocket = Array.from(io.sockets.sockets.values()).find(s => s.data.playerId === deadPlayer.id);
+                if (deadSocket) observerSockets.push(deadSocket);
+            });
+
+            // Send updates to all observers (host + dead players)
+            observerSockets.forEach(observerSocket => {
+                observerSocket.emit('HOST_UPDATE', {
+                    actionStatus: status,
+                    actionLog: actionDetails
+                });
+            });
 
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
@@ -280,7 +292,30 @@ io.on('connection', (socket) => {
     socket.on('VOTE', ({ targetId }) => {
         const { roomCode, playerId } = socket.data;
         try {
-            gameManager.submitVote(roomCode, playerId, targetId);
+            const result = gameManager.submitVote(roomCode, playerId, targetId);
+
+            if (result) {
+                const room = gameManager.getRoom(roomCode);
+                const voter = room.players.find(p => p.id === playerId);
+                const target = room.players.find(p => p.id === targetId);
+
+                // Broadcast individual vote to all players
+                io.to(roomCode).emit('VOTE_CAST', {
+                    voterName: voter ? voter.name : 'Unknown',
+                    targetName: targetId === 'SKIP' ? 'Bỏ qua' : (target ? target.name : 'Unknown'),
+                    voterId: playerId,
+                    targetId: targetId
+                });
+
+                // Broadcast vote leader update
+                if (result.leaderId) {
+                    io.to(roomCode).emit('VOTE_LEADER_UPDATE', {
+                        leaderName: result.leaderName,
+                        voteCount: result.voteCount,
+                        totalVotes: result.totalVotes
+                    });
+                }
+            }
 
             // Notify Host of progress
             const status = gameManager.getActionStatus(roomCode);
@@ -457,28 +492,42 @@ io.on('connection', (socket) => {
         if (roomCode && playerId) {
             const room = gameManager.getRoom(roomCode);
             if (room) {
-                // Check if disconnecting player is host
                 const player = room.players.find(p => p.id === playerId);
-                if (player && player.isHost) {
-                    console.log(`[SERVER] Host ${playerId} disconnected from room ${roomCode}. Closing room.`);
 
-                    // Emit HOST_LEFT to all players in room
+                if (player && player.isHost) {
+                    // Host disconnect - close room
+                    console.log(`[SERVER] Host ${playerId} disconnected from room ${roomCode}. Closing room.`);
                     io.to(roomCode).emit('HOST_LEFT', {
                         message: 'Host đã rời phòng. Phòng sẽ bị đóng.'
                     });
-
-                    // Delete room after short delay to allow message delivery
                     setTimeout(() => {
                         gameManager.rooms.delete(roomCode);
                         console.log(`[SERVER] Room ${roomCode} deleted`);
                     }, 1000);
-                } else {
-                    // Regular player disconnect
-                    gameManager.handleDisconnect(roomCode, playerId);
-                    io.to(roomCode).emit('PLAYER_DISCONNECTED', { playerId });
+                } else if (player) {
+                    // Regular player disconnect - REMOVE IMMEDIATELY
+                    console.log(`[SERVER] Player ${player.name} (${playerId}) disconnected from room ${roomCode}. Removing player.`);
+
+                    // Clean up player's votes and actions
+                    room.votes.delete(playerId);
+                    room.actions.delete(playerId);
+
+                    // Remove player from room
+                    const playerIndex = room.players.findIndex(p => p.id === playerId);
+                    if (playerIndex !== -1) {
+                        room.players.splice(playerIndex, 1);
+                    }
+
+                    // Broadcast removal to all remaining players
+                    io.to(roomCode).emit('PLAYER_REMOVED', {
+                        playerId,
+                        playerName: player.name,
+                        message: `${player.name} đã rời phòng.`
+                    });
+
+                    console.log(`[SERVER] Player ${player.name} removed from room ${roomCode}`);
                 }
             }
-            console.log(`Player ${playerId} disconnected from room ${roomCode}`);
         }
         rateLimiter.cleanup(socket.id);
     });

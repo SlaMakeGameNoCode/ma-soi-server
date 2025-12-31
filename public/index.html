@@ -294,6 +294,34 @@
             background: #0f172a;
             border-radius: 8px;
         }
+
+        .vote-leader-notification {
+            background: #1e293b;
+            border: 2px solid #f59e0b;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+        }
+
+        .vote-leader-notification h3 {
+            color: #f59e0b;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .vote-leader-notification .leader-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 5px;
+        }
+
+        .vote-leader-notification .vote-count {
+            color: #94a3b8;
+            font-size: 14px;
+        }
     </style>
 </head>
 
@@ -335,6 +363,13 @@
 
             <!-- Timer Display -->
             <div class="timer-display" id="timerDisplay">--</div>
+
+            <!-- Vote Leader Notification -->
+            <div class="vote-leader-notification" id="voteLeaderNotification">
+                <h3>🗳️ Đang Dẫn Đầu</h3>
+                <div class="leader-name" id="voteLeaderName">---</div>
+                <div class="vote-count" id="voteLeaderCount">--- phiếu</div>
+            </div>
 
             <!-- Action Area -->
             <div class="card" id="actionArea">
@@ -693,6 +728,69 @@
             window.location.reload();
         });
 
+        // Vote Leader Update Handler
+        socket.on('VOTE_LEADER_UPDATE', (data) => {
+            const notification = document.getElementById('voteLeaderNotification');
+            const leaderName = document.getElementById('voteLeaderName');
+            const voteCount = document.getElementById('voteLeaderCount');
+
+            if (data.leaderName && data.voteCount > 0) {
+                notification.style.display = 'block';
+                leaderName.innerText = data.leaderName;
+                voteCount.innerText = `${data.voteCount} / ${data.totalVotes} phiếu`;
+            } else {
+                notification.style.display = 'none';
+            }
+        });
+
+        // NEW: Vote Cast Notification (Public Vote Visibility)
+        socket.on('VOTE_CAST', (data) => {
+            const logMsg = `🗳️ ${data.voterName} vote ${data.targetName}`;
+            addTypesLogs([logMsg]);
+        });
+
+        // NEW: Player Removed Handler (Auto-Disconnect)
+        socket.on('PLAYER_REMOVED', (data) => {
+            // If I was removed, redirect to join page
+            if (data.playerId === myPlayerId) {
+                alert(data.message || 'Bạn đã bị ngắt kết nối');
+                localStorage.removeItem('roomCode');
+                localStorage.removeItem('playerId');
+                localStorage.removeItem('token');
+                window.location.href = '/';
+                return;
+            }
+
+            // Otherwise, just log the removal
+            addTypesLogs([data.message || `${data.playerName} đã rời phòng`]);
+
+            // Refresh player list
+            socket.emit('GET_PLAYERS');
+        });
+
+        // Handle socket disconnect (network issues)
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            // Show message and redirect after delay
+            setTimeout(() => {
+                alert('Mất kết nối với server');
+                window.location.href = '/';
+            }, 1000);
+        });
+
+        // NEW: Dead Player Observer - Receive HOST_UPDATE
+        socket.on('HOST_UPDATE', (data) => {
+            // Dead players receive host updates for omniscient view
+            const me = currentPlayers.find(p => p.id === myPlayerId);
+            if (me && !me.alive) {
+                // Display action log details
+                if (data.actionLog) {
+                    const logMsg = `🔍 [Host Log] ${data.actionLog.actorName} (${data.actionLog.actorRole}) → ${data.actionLog.actionType} → ${data.actionLog.targetName}`;
+                    addTypesLogs([logMsg]);
+                }
+            }
+        });
+
         // NEW: Witch Preview System
         socket.on('WITCH_PREVIEW', (data) => {
             console.log('[WITCH_PREVIEW] Event received:', data);
@@ -1001,11 +1099,14 @@
             // Check Alive Status
             const me = currentPlayers.find(p => p.id === myPlayerId);
             if (!me || !me.alive) {
-                // If dead, hide actions
+                // If dead, hide actions but show observer mode indicator
                 actionArea.classList.add('hidden');
-                // Optional: Show "Spectating" status?
-                // User said "ko báo trạng thái chết". 
-                // So simply showing nothing (Spectator mode) is best.
+
+                // Show observer mode indicator
+                title.innerHTML = '👻 CHẾ ĐỘ QUAN SÁT';
+                container.innerHTML = '<p style="color: #94a3b8; text-align: center; padding: 20px;">Bạn đã chết. Bạn có thể xem toàn bộ vai trò và hành động của người chơi khác.</p>';
+                actionArea.classList.remove('hidden');
+                btn.style.display = 'none';
                 return;
             }
 
@@ -1115,6 +1216,21 @@
                 container.appendChild(div);
             });
 
+            // Add SKIP button for vote phase
+            if (actionType === 'VOTE') {
+                const skipDiv = document.createElement('div');
+                skipDiv.className = 'action-btn';
+                skipDiv.style.background = '#475569';
+                skipDiv.style.borderColor = '#64748b';
+                skipDiv.innerText = '⏭️ Bỏ qua';
+                skipDiv.onclick = () => {
+                    document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('selected'));
+                    skipDiv.classList.add('selected');
+                    selectedTarget = 'SKIP';
+                };
+                container.appendChild(skipDiv);
+            }
+
             btn.onclick = () => {
                 if (!selectedTarget) return alert('Chưa chọn mục tiêu!');
 
@@ -1126,6 +1242,11 @@
 
                 btn.disabled = true;
                 btn.innerText = 'Đã Gửi';
+
+                // Hide button after sending
+                setTimeout(() => {
+                    btn.style.display = 'none';
+                }, 500);
             };
         }
 

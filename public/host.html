@@ -238,7 +238,7 @@
                         </div>
                     </div>
                     <div style="text-align: center; margin-top: 8px; font-size: 12px; color: #94a3b8;">
-                        (Không tính Host, từ 3-20 người)
+                        (Không tính Host, từ 3-50 người)
                     </div>
                 </div>
 
@@ -347,7 +347,7 @@
         // Update Max Players
         window.updateMaxPlayers = (change) => {
             const newMax = currentMaxPlayers + change;
-            if (newMax >= 3 && newMax <= 20) {
+            if (newMax >= 3 && newMax <= 50) {
                 currentMaxPlayers = newMax;
                 document.getElementById('maxPlayersDisplay').innerText = currentMaxPlayers;
                 // Send to server

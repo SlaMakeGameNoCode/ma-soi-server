@@ -658,8 +658,8 @@ class GameManager {
     if (room.phase !== 'lobby') throw new Error('Chỉ có thể thay đổi trong Lobby');
 
     // Validate maxPlayers
-    if (maxPlayers < 3 || maxPlayers > 20) {
-      throw new Error('Số người chơi phải từ 3 đến 20');
+    if (maxPlayers < 3 || maxPlayers > 50) {
+      throw new Error('Số người chơi phải từ 3 đến 50');
     }
 
     // Check current player count

@@ -288,6 +288,11 @@
                     <button class="btn btn-secondary" id="toggleChatBtn" style="width:auto; padding:10px 14px;">Đang bật</button>
                 </div>
 
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:12px;">
+                    <span style="color:#cbd5e1; font-weight:600;">AI Host:</span>
+                    <button class="btn btn-secondary" id="toggleAIHostBtn" style="width:auto; padding:10px 14px;">Tắt</button>
+                </div>
+
                 <div style="display: flex; gap: 10px;">
                     <button class="btn btn-primary" id="startGameBtn">Bắt Đầu Game</button>
                     <button class="btn btn-secondary" id="nextPhaseBtn" disabled>Phase Tiếp Theo</button>
@@ -333,8 +338,10 @@
         const endGameBtn = document.getElementById('endGameBtn');
         const notificationOverlay = document.getElementById('notificationOverlay');
     const toggleChatBtn = document.getElementById('toggleChatBtn');
+    const toggleAIHostBtn = document.getElementById('toggleAIHostBtn');
 
     let chatEnabled = true;
+    let aiHostEnabled = false;
 
         // Role State
         const roles = {
@@ -428,7 +435,7 @@
 
         // Socket Events
         document.getElementById('createRoomBtn').addEventListener('click', () => {
-            socket.emit('CREATE_ROOM', { playerName: 'HOST' });
+            socket.emit('CREATE_ROOM', { playerName: 'HOST', aiHost: aiHostEnabled });
         });
 
         // Toggle chat on/off
@@ -436,6 +443,13 @@
             chatEnabled = !chatEnabled;
             socket.emit('SET_CHAT_ENABLED', { enabled: chatEnabled });
             updateChatToggleUI();
+        });
+
+        // Toggle AI Host on/off
+        toggleAIHostBtn.addEventListener('click', () => {
+            aiHostEnabled = !aiHostEnabled;
+            socket.emit('SET_AI_HOST_ENABLED', { enabled: aiHostEnabled });
+            updateAIToggleUI();
         });
 
         socket.on('ROOM_CREATED', (data) => {
@@ -446,6 +460,7 @@
             initRoleConfig();
             addLog(`✅ Đã tạo phòng: ${data.roomCode}`);
             updateChatToggleUI();
+            updateAIToggleUI();
         });
 
         socket.on('PLAYER_JOINED', (data) => {
@@ -458,6 +473,11 @@
         socket.on('CHAT_SYNC', (data) => {
             chatEnabled = !!data.enabled;
             updateChatToggleUI();
+        });
+
+        socket.on('AI_HOST_SYNC', (data) => {
+            aiHostEnabled = !!data.enabled;
+            updateAIToggleUI();
         });
 
         // Start Game
@@ -638,6 +658,13 @@
             toggleChatBtn.innerText = chatEnabled ? 'Đang bật' : 'Đang tắt';
             toggleChatBtn.style.background = chatEnabled ? '#10b981' : '#475569';
             toggleChatBtn.style.color = chatEnabled ? '#000' : '#fff';
+        }
+
+        function updateAIToggleUI() {
+            if (!toggleAIHostBtn) return;
+            toggleAIHostBtn.innerText = aiHostEnabled ? 'Bật' : 'Tắt';
+            toggleAIHostBtn.style.background = aiHostEnabled ? '#10b981' : '#475569';
+            toggleAIHostBtn.style.color = aiHostEnabled ? '#000' : '#fff';
         }
 
         // Timer Update Handler

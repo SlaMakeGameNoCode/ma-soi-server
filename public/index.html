@@ -990,6 +990,10 @@
                 currentPlayers = state.players || currentPlayers;
                 currentPhase = state.phase || currentPhase;
                 showScreen('game');
+                // Ensure role/name UI is consistent after reconnect
+                const meNow = currentPlayers.find(p => p.id === myPlayerId);
+                renderRole(myRole, meNow ? meNow.name : 'Bạn');
+
                 updateStatusBar(`Pha: ${currentPhase}`);
                 setupActionUI(currentPhase);
                 showPhaseOverlay((currentPhase || '').toUpperCase());
@@ -1001,6 +1005,15 @@
             renderLobby(data.players);
             updateStatusBar();
             renderSuspicionUI();
+
+            // If already in game, switch to game screen and keep UI synced
+            if (currentPhase && currentPhase !== 'lobby' && currentPhase !== 'end') {
+                showScreen('game');
+                const meNow = currentPlayers.find(p => p.id === myPlayerId);
+                if (meNow && myRole) {
+                    renderRole(myRole, meNow.name);
+                }
+            }
 
             // If in game, refresh Action UI to reflect Alive statuses
             if (currentPhase !== 'lobby' && currentPhase !== 'end') {

@@ -555,6 +555,13 @@
             <!-- Timer Display -->
             <div class="timer-display" id="timerDisplay">--</div>
 
+            <!-- Discussion Ready -->
+            <div class="card" id="readyCard" style="display:none; margin-top:12px;">
+                <h3 style="margin-bottom:8px;">Thảo luận xong?</h3>
+                <p id="readyStatusText" style="color:#94a3b8; margin-bottom:8px;">0/0 đã sẵn sàng</p>
+                <button class="btn btn-secondary" id="readyBtn" style="width:100%;">Đã thảo luận xong</button>
+            </div>
+
             <!-- Vote Leader Notification -->
             <div class="vote-leader-notification" id="voteLeaderNotification">
                 <h3>🗳️ Đang Dẫn Đầu</h3>
@@ -640,6 +647,10 @@
     let suspectLocked = false;
     let chatEnabled = false;
     let chatLog = [];
+    let pendingExecutionId = null;
+        let readySent = false;
+        let readyCounts = { ready: 0, total: 0 };
+        let phaseOverlayTimer = null;
 
         // Role Guide Data
         const ROLE_GUIDES = {
@@ -793,11 +804,36 @@
             setTimeout(() => div.remove(), 2200);
         }
 
-        function showPhaseOverlay(text) {
+        function isCurrentPlayerDead() {
+            const me = currentPlayers.find(p => p.id === myPlayerId);
+            return !me || !me.alive;
+        }
+
+        function updateReadyUI(totalOverride = null) {
+            if (!readyCard) return;
+            const total = totalOverride !== null ? totalOverride : currentPlayers.filter(p => !p.isHost && p.alive).length;
+            readyCounts.total = total;
+            readyStatusText.innerText = `${readyCounts.ready}/${total} đã sẵn sàng`;
+            readyBtn.disabled = readySent || isCurrentPlayerDead();
+            readyBtn.innerText = readySent ? 'Đã xác nhận' : 'Đã thảo luận xong';
+            readyCard.style.display = (currentPhase === 'day' && !isCurrentPlayerDead()) ? 'block' : 'none';
+        }
+
+        function showPhaseOverlay(text, duration = 3) {
             const overlay = document.getElementById('phaseOverlay');
-            overlay.innerText = text;
+            let seconds = duration;
             overlay.style.display = 'flex';
-            setTimeout(() => overlay.style.display = 'none', 700);
+            overlay.innerHTML = `<div style="text-align:center;"><div style="font-size:28px; font-weight:700; margin-bottom:6px;">${text}</div><div id="phaseCountdown" style="font-size:22px; color:#fbbf24;">${seconds}s</div></div>`;
+            if (phaseOverlayTimer) clearInterval(phaseOverlayTimer);
+            phaseOverlayTimer = setInterval(() => {
+                seconds -= 1;
+                const counter = document.getElementById('phaseCountdown');
+                if (counter) counter.innerText = `${Math.max(0, seconds)}s`;
+                if (seconds <= 0) {
+                    clearInterval(phaseOverlayTimer);
+                    overlay.style.display = 'none';
+                }
+            }, 1000);
         }
 
         function updateStatusBar(phase) {
@@ -865,6 +901,10 @@
             game: document.getElementById('gameScreen')
         };
 
+        const readyCard = document.getElementById('readyCard');
+        const readyBtn = document.getElementById('readyBtn');
+        const readyStatusText = document.getElementById('readyStatusText');
+
         // Chat DOM
         const chatCard = document.getElementById('chatCard');
         const chatMessagesEl = document.getElementById('chatMessages');
@@ -885,6 +925,14 @@
             if (!name || !roomCode) return alert("Vui lòng nhập tên và mã phòng");
 
             socket.emit('JOIN_ROOM', { roomCode, playerName: name });
+        });
+
+        readyBtn.addEventListener('click', () => {
+            if (readySent) return;
+            readySent = true;
+            readyBtn.disabled = true;
+            readyBtn.innerText = 'Đã xác nhận';
+            socket.emit('READY_FOR_VOTE');
         });
 
         // Chat send handler
@@ -919,6 +967,13 @@
             }
         });
 
+        socket.on('DISCUSSION_READY', (data) => {
+            readyCounts.ready = data.ready;
+            readyCounts.total = data.total;
+            updateReadyUI(data.total);
+            showToast(`${data.playerName} đã sẵn sàng (${data.ready}/${data.total})`, 'info');
+        });
+
         socket.on('GAME_STARTED', (data) => {
             myRole = data.role;
             currentPlayers = data.players;
@@ -938,12 +993,25 @@
 
         socket.on('PHASE_CHANGED', (data) => {
             currentPhase = data.phase;
+            pendingExecutionId = data.pendingExecutionId || null; // Ensure pendingExecutionId is set correctly
+            if (data.phase !== 'day') {
+                readyCard.style.display = 'none';
+            }
             let phaseText = `${data.phase.toUpperCase()} ${data.day}`;
             if (data.phase === 'execution_reveal') phaseText = 'KẾT QUẢ BẦU CỬ';
 
             document.getElementById('phaseDisplay').innerText = phaseText;
             addTypesLogs(data.logs);
-            showPhaseOverlay(phaseText);
+            let countdownSecs = 3;
+            if (data.phase === 'defense') {
+                const now = Date.now();
+                if (data.defenseEndsAt) {
+                    countdownSecs = Math.max(3, Math.ceil((data.defenseEndsAt - now) / 1000));
+                } else {
+                    countdownSecs = 30;
+                }
+            }
+            showPhaseOverlay(phaseText, countdownSecs);
 
             // Check if current player died
             const me = currentPlayers.find(p => p.id === myPlayerId);
@@ -957,6 +1025,21 @@
                 showNarrator('BAN NGÀY ☀️', `Trời sáng rồi!`);
                 suspectLocked = true;
 
+                readySent = false;
+                readyCounts.ready = 0;
+                updateReadyUI();
+
+                // AI host style narration about night deaths
+                const deaths = Array.isArray(data.nightDeaths) ? data.nightDeaths : [];
+                let msg = 'Đêm qua là một đêm yên bình và không có ai chết';
+                if (deaths.length === 1) {
+                    msg = `Đêm qua có 1 người đã về với ông bà tổ tiên. Đó là ${deaths[0].name}`;
+                } else if (deaths.length > 1) {
+                    const names = deaths.map(d => d.name).join(', ');
+                    msg = `Đêm qua là một đêm đẫm máu - có ${deaths.length} người chết. Đó là ${names}`;
+                }
+                showNarrator('TÓM TẮT ĐÊM QUA', msg);
+
                 // Check if player died during night
                 setTimeout(() => {
                     const meNow = currentPlayers.find(p => p.id === myPlayerId);
@@ -967,10 +1050,12 @@
             } else if (data.phase === 'vote') {
                 showNarrator('BỎ PHIẾU 🗳️', 'Mọi người hãy bỏ phiếu treo cổ!');
                 suspectLocked = true;
+                readyCard.style.display = 'none';
             } else if (data.phase === 'night') {
                 showNarrator('BAN ĐÊM 🌙', `Đêm thứ ${data.day}. Các chức năng hoạt động!`);
                 suspectLocked = false;
                 renderSuspicionUI();
+                readyCard.style.display = 'none';
 
                 // Check if player died during vote/execution
                 setTimeout(() => {
@@ -1035,6 +1120,17 @@
                         }, 1500); // Delay so they see the announcement first
                     }
                 }, 600); // Wait for GET_PLAYERS to sync currentPlayers
+            } else if (data.phase === 'defense') {
+                const victim = currentPlayers.find(p => p.id === pendingExecutionId);
+                const victimName = victim ? victim.name : 'người bị treo cổ';
+                showNarrator('BIỆN HỘ 🛡️', `${victimName} có 30s để biện hộ trước khi quyết định cuối cùng.`);
+                readyCard.style.display = 'none';
+            } else if (data.phase === 'final_verdict') {
+                const victim = currentPlayers.find(p => p.id === pendingExecutionId);
+                const victimName = victim ? victim.name : 'người bị treo cổ';
+                showNarrator('PHIÊN XÉT XỬ ⚔️', `Hãy chọn: Giết hoặc Không giết ${victimName}.`);
+                setupActionUI('final_verdict');
+                readyCard.style.display = 'none';
             }
         });
 
@@ -1118,6 +1214,11 @@
         socket.on('VOTE_CAST', (data) => {
             const logMsg = `🗳️ ${data.voterName} vote ${data.targetName}`;
             addTypesLogs([logMsg]);
+        });
+
+        socket.on('FINAL_VOTE_UPDATE', (data) => {
+            const msg = `Bỏ phiếu cuối: Giết ${data.executeVotes}/${data.totalVotes} - Không giết ${data.spareVotes}/${data.totalVotes}`;
+            showToast(msg, 'warn');
         });
 
         // NEW: Wolf target preview (show to all wolves when any wolf sets KILL target)
@@ -1635,6 +1736,10 @@
                 actionType = 'VOTE';
 
                 // Lawyer check logic...
+            } else if (phase === 'final_verdict') {
+                showActions = true;
+                title.innerText = 'Quyết định cuối: Giết hay Không giết?';
+                actionType = 'FINAL_VOTE';
             }
 
             if (!showActions) {
@@ -1650,50 +1755,69 @@
                 wolfBanner.classList.add('hidden');
             }
 
-            // Render targets (Alive players excluding self and Host)
-            // IMPORTANT: Filter out dead players from vote list
-            currentPlayers.filter(p => !p.isHost && p.alive).forEach(p => {
-                // Self-targeting allowed?
-                // Bodyguard: Can protect self? Usually yes.
-                // Witch: Can save self? Usually yes (once).
-                // Hunter: Pin self? No.
-                if (p.id === myPlayerId) {
-                    if (actionType === 'PIN') return; // Hunter cant pin self
-                    // Others allowed
+            if (actionType === 'FINAL_VOTE') {
+                const options = [
+                    { id: 'EXECUTE', label: '⚔️ Giết' },
+                    { id: 'SPARE', label: '🙏 Không giết' }
+                ];
+
+                options.forEach(opt => {
+                    const div = document.createElement('div');
+                    div.className = 'action-btn';
+                    div.innerText = opt.label;
+                    div.onclick = () => {
+                        document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('selected'));
+                        div.classList.add('selected');
+                        selectedTarget = opt.id;
+                    };
+                    container.appendChild(div);
+                });
+            } else {
+                // Render targets (Alive players excluding self and Host)
+                // IMPORTANT: Filter out dead players from vote list
+                currentPlayers.filter(p => !p.isHost && p.alive).forEach(p => {
+                    // Self-targeting allowed?
+                    // Bodyguard: Can protect self? Usually yes.
+                    // Witch: Can save self? Usually yes (once).
+                    // Hunter: Pin self? No.
+                    if (p.id === myPlayerId) {
+                        if (actionType === 'PIN') return; // Hunter cant pin self
+                        // Others allowed
+                    }
+
+                    const div = document.createElement('div');
+                    div.className = 'action-btn';
+
+                    // Show wolf icon for other wolves (so wolves can recognize each other)
+                    let displayName = p.name;
+                    if ((myRole === 'wolf' || myRole === 'alphaWolf') &&
+                        (p.role === 'wolf' || p.role === 'alphaWolf')) {
+                        displayName = p.name + ' 🐺';
+                    }
+
+                    div.innerText = displayName;
+                    div.onclick = () => {
+                        document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('selected'));
+                        div.classList.add('selected');
+                        selectedTarget = p.id;
+                    };
+                    container.appendChild(div);
+                });
+
+                // Add SKIP button for vote phase
+                if (actionType === 'VOTE') {
+                    const skipDiv = document.createElement('div');
+                    skipDiv.className = 'action-btn';
+                    skipDiv.style.background = '#475569';
+                    skipDiv.style.borderColor = '#64748b';
+                    skipDiv.innerText = '⏭️ Bỏ qua';
+                    skipDiv.onclick = () => {
+                        document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('selected'));
+                        skipDiv.classList.add('selected');
+                        selectedTarget = 'SKIP';
+                    };
+                    container.appendChild(skipDiv);
                 }
-
-                const div = document.createElement('div');
-                div.className = 'action-btn';
-
-                // Show wolf icon for other wolves (so wolves can recognize each other)
-                let displayName = p.name;
-                if ((myRole === 'wolf' || myRole === 'alphaWolf') &&
-                    (p.role === 'wolf' || p.role === 'alphaWolf')) {
-                    displayName = p.name + ' 🐺';
-                }
-
-                div.innerText = displayName;
-                div.onclick = () => {
-                    document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('selected'));
-                    div.classList.add('selected');
-                    selectedTarget = p.id;
-                };
-                container.appendChild(div);
-            });
-
-            // Add SKIP button for vote phase
-            if (actionType === 'VOTE') {
-                const skipDiv = document.createElement('div');
-                skipDiv.className = 'action-btn';
-                skipDiv.style.background = '#475569';
-                skipDiv.style.borderColor = '#64748b';
-                skipDiv.innerText = '⏭️ Bỏ qua';
-                skipDiv.onclick = () => {
-                    document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('selected'));
-                    skipDiv.classList.add('selected');
-                    selectedTarget = 'SKIP';
-                };
-                container.appendChild(skipDiv);
             }
 
             btn.onclick = () => {
@@ -1702,6 +1826,9 @@
                 if (actionType === 'VOTE') {
                     socket.emit('VOTE', { targetId: selectedTarget });
                     showToast('Đã gửi phiếu', 'success');
+                } else if (actionType === 'FINAL_VOTE') {
+                    socket.emit('VOTE', { targetId: selectedTarget });
+                    showToast('Đã gửi lựa chọn cuối', 'success');
                 } else {
                     socket.emit('ACTION', { type: actionType, targetId: selectedTarget });
                     showToast('Đã gửi hành động', 'success');

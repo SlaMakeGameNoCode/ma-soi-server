@@ -396,8 +396,24 @@ io.on('connection', (socket) => {
             });
 
             // AI auto advance if ready
+            const beforePhase = room.phase;
             gameManager.maybeAutoAdvance(roomCode);
-            gameManager.schedulePhaseTimer(room);
+            const updatedRoom = gameManager.getRoom(roomCode);
+
+            if (beforePhase !== updatedRoom.phase) {
+                io.to(roomCode).emit('PHASE_CHANGED', {
+                    phase: updatedRoom.phase,
+                    day: updatedRoom.day,
+                    logs: updatedRoom.actionLog,
+                    winner: updatedRoom.winner,
+                    executedPlayerId: updatedRoom.executedPlayerId,
+                    pendingExecutionId: updatedRoom.pendingExecutionId,
+                    defenseEndsAt: updatedRoom.defenseEndsAt,
+                    nightDeaths: updatedRoom.lastNightDeaths || []
+                });
+            }
+
+            gameManager.schedulePhaseTimer(updatedRoom);
 
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
@@ -425,6 +441,36 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Player confirms discussion finished (day phase)
+    socket.on('READY_FOR_VOTE', () => {
+        const { roomCode, playerId } = socket.data;
+        try {
+            const status = gameManager.markDiscussionReady(roomCode, playerId);
+            io.to(roomCode).emit('DISCUSSION_READY', status);
+
+            // AI auto advance if everyone ready
+            const before = gameManager.getRoom(roomCode);
+            const beforePhase = before ? before.phase : null;
+            gameManager.maybeAutoAdvance(roomCode);
+            const room = gameManager.getRoom(roomCode);
+            if (room && beforePhase && beforePhase !== room.phase) {
+                io.to(roomCode).emit('PHASE_CHANGED', {
+                    phase: room.phase,
+                    day: room.day,
+                    logs: room.actionLog,
+                    winner: room.winner,
+                    executedPlayerId: room.executedPlayerId,
+                    pendingExecutionId: room.pendingExecutionId,
+                    defenseEndsAt: room.defenseEndsAt,
+                    nightDeaths: room.lastNightDeaths || []
+                });
+            }
+            gameManager.schedulePhaseTimer(room);
+        } catch (error) {
+            socket.emit('ERROR', { message: error.message });
+        }
+    });
+
     socket.on('VOTE', ({ targetId }) => {
         const { roomCode, playerId } = socket.data;
         try {
@@ -438,18 +484,31 @@ io.on('connection', (socket) => {
                 // Broadcast individual vote to all players
                 io.to(roomCode).emit('VOTE_CAST', {
                     voterName: voter ? voter.name : 'Unknown',
-                    targetName: targetId === 'SKIP' ? 'Bỏ qua' : (target ? target.name : 'Unknown'),
+                    targetName: room.phase === 'final_verdict'
+                        ? (targetId === 'EXECUTE' ? 'Giết' : 'Không giết')
+                        : (targetId === 'SKIP' ? 'Bỏ qua' : (target ? target.name : 'Unknown')),
                     voterId: playerId,
                     targetId: targetId
                 });
 
-                // Broadcast vote leader update
-                if (result.leaderId) {
-                    io.to(roomCode).emit('VOTE_LEADER_UPDATE', {
-                        leaderName: result.leaderName,
-                        voteCount: result.voteCount,
-                        totalVotes: result.totalVotes
+                if (room.phase === 'final_verdict') {
+                    const executeVotes = Array.from(room.finalVotes.values()).filter(v => v === 'EXECUTE').length;
+                    const spareVotes = Array.from(room.finalVotes.values()).filter(v => v === 'SPARE').length;
+                    const totalVotes = room.players.filter(p => p.alive).length;
+                    io.to(roomCode).emit('FINAL_VOTE_UPDATE', {
+                        executeVotes,
+                        spareVotes,
+                        totalVotes
                     });
+                } else {
+                    // Broadcast vote leader update
+                    if (result.leaderId) {
+                        io.to(roomCode).emit('VOTE_LEADER_UPDATE', {
+                            leaderName: result.leaderName,
+                            voteCount: result.voteCount,
+                            totalVotes: result.totalVotes
+                        });
+                    }
                 }
             }
 
@@ -467,8 +526,24 @@ io.on('connection', (socket) => {
             }
 
             // AI auto advance if all votes in
+            const before = gameManager.getRoom(roomCode);
+            const beforePhase = before ? before.phase : null;
             gameManager.maybeAutoAdvance(roomCode);
             const roomAfter = gameManager.getRoom(roomCode);
+
+            if (roomAfter && beforePhase && beforePhase !== roomAfter.phase) {
+                io.to(roomCode).emit('PHASE_CHANGED', {
+                    phase: roomAfter.phase,
+                    day: roomAfter.day,
+                    logs: roomAfter.actionLog,
+                    winner: roomAfter.winner,
+                    executedPlayerId: roomAfter.executedPlayerId,
+                    pendingExecutionId: roomAfter.pendingExecutionId,
+                    defenseEndsAt: roomAfter.defenseEndsAt,
+                    nightDeaths: roomAfter.lastNightDeaths || []
+                });
+            }
+
             gameManager.schedulePhaseTimer(roomAfter);
 
         } catch (error) {
@@ -515,7 +590,10 @@ io.on('connection', (socket) => {
                 day: room.day,
                 logs: room.actionLog,
                 winner: room.winner, // Send winner data for game over screen
-                executedPlayerId: room.executedPlayerId // Send who was executed
+                executedPlayerId: room.executedPlayerId, // Send who was executed
+                pendingExecutionId: room.pendingExecutionId,
+                defenseEndsAt: room.defenseEndsAt,
+                nightDeaths: room.lastNightDeaths || []
             });
 
             // Start auto-timer for DAY phase
@@ -550,7 +628,10 @@ io.on('connection', (socket) => {
                                 day: updatedRoom.day,
                                 logs: updatedRoom.actionLog,
                                 winner: updatedRoom.winner,
-                                executedPlayerId: updatedRoom.executedPlayerId
+                                executedPlayerId: updatedRoom.executedPlayerId,
+                                pendingExecutionId: updatedRoom.pendingExecutionId,
+                                defenseEndsAt: updatedRoom.defenseEndsAt,
+                                nightDeaths: updatedRoom.lastNightDeaths || []
                             });
                         } catch (error) {
                             console.error('[TIMER] Auto-advance error:', error);

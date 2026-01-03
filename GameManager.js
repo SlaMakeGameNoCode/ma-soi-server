@@ -52,6 +52,8 @@ class GameManager {
       }],
       votes: new Map(),
       actions: new Map(), // General actions map (night & day)
+      finalVotes: new Map(), // For mercy/execute vote after defense
+      discussionReady: new Set(), // Players confirming end of discussion
       winner: null,
       actionLog: [],
       config: null, // Store role config
@@ -60,6 +62,9 @@ class GameManager {
       aiHostEnabled: false,
       aiHostId: null,
       phaseTimer: null,
+      pendingExecutionId: null,
+      defenseEndsAt: null,
+      lastNightDeaths: [],
       aiConfig: {
         nightDuration: 45,
         voteDuration: 30,
@@ -110,6 +115,27 @@ class GameManager {
     if (!host) throw new Error('Không có quyền Host');
     room.chatEnabled = !!enabled;
     return room;
+  }
+
+  markDiscussionReady(roomCode, playerId) {
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Không tìm thấy phòng');
+    if (room.phase !== 'day') throw new Error('Chỉ xác nhận trong pha thảo luận (ban ngày)');
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player || !player.alive || player.isHost) throw new Error('Người chơi không hợp lệ');
+
+    if (!room.discussionReady) room.discussionReady = new Set();
+    room.discussionReady.add(playerId);
+
+    const total = room.players.filter(p => !p.isHost && p.alive).length;
+    const ready = room.discussionReady.size;
+
+    return {
+      ready,
+      total,
+      playerName: player.name
+    };
   }
 
   addChatMessage(roomCode, playerId, message) {
@@ -192,6 +218,10 @@ class GameManager {
       room.phaseTimer = setTimeout(advance, (room.aiConfig.voteDuration || 30) * 1000);
     } else if (room.phase === 'execution_reveal') {
       room.phaseTimer = setTimeout(advance, (room.aiConfig.revealDuration || 5) * 1000);
+    } else if (room.phase === 'defense') {
+      room.phaseTimer = setTimeout(advance, 30000);
+    } else if (room.phase === 'final_verdict') {
+      room.phaseTimer = setTimeout(advance, 20000);
     }
   }
 
@@ -264,6 +294,11 @@ class GameManager {
 
     room.phase = 'night';
     room.day = 1;
+    room.discussionReady = new Set();
+    room.finalVotes = new Map();
+    room.pendingExecutionId = null;
+    room.defenseEndsAt = null;
+    room.lastNightDeaths = [];
     room.actionLog.push(`Game bắt đầu với ${totalPlayers} người chơi (trừ Host).`);
 
     return room;
@@ -354,6 +389,18 @@ class GameManager {
 
   resolveNight(room) {
     const logs = [];
+    room.lastNightDeaths = [];
+
+    const recordDeath = (player) => {
+      if (!player) return;
+      if (!room.lastNightDeaths) room.lastNightDeaths = [];
+      if (!room.lastNightDeaths.find(d => d.id === player.id)) {
+        room.lastNightDeaths.push({ id: player.id, name: player.name });
+      }
+    };
+    const wasAlive = new Map();
+    room.players.forEach(p => wasAlive.set(p.id, p.alive));
+    room.lastNightDeaths = [];
 
     // 1. Collect Actions
     const wolfKills = new Map(); // targetId -> count
@@ -463,6 +510,7 @@ class GameManager {
         } else {
           // Apply death
           victim.alive = false;
+            recordDeath(victim);
           logs.push(`💀 ${victim.name} đã bị Sói giết.`);
         }
       }
@@ -500,6 +548,7 @@ class GameManager {
                   actor.attributes.hasKilled = true;
                 } else {
                   target.alive = false;
+                  recordDeath(target);
                   logs.push(`💀 ${target.name} đã chết một cách bí ẩn (Phù thủy).`);
                   actor.attributes.hasKilled = true;
                   console.log(`[WITCH_KILL] SUCCESS! Killed ${target.name}`);
@@ -555,6 +604,7 @@ class GameManager {
         console.log(`[HUNTER] Death link check: target=${target?.name}, target.alive=${target?.alive}`);
         if (target && target.alive) {
           target.alive = false;
+            recordDeath(target);
           logs.push(`🏹 Thợ săn ${hunter.name} chết đã kéo theo ${target.name}!`);
           console.log(`[HUNTER] Death link triggered: ${target.name} dies with hunter`);
         }
@@ -565,31 +615,57 @@ class GameManager {
     room.actions.clear();
     room.players.forEach(p => p.hasVoted = false);
 
+    // Capture deaths from night
+    room.lastNightDeaths = room.players
+      .filter(p => wasAlive.get(p.id) && !p.alive && !p.isHost)
+      .map(p => ({ id: p.id, name: p.name }));
+
     // Check win condition after ALL deaths (including hunter death link)
     this.checkWin(room);
 
     // Transition to day (unless game ended)
     if (room.phase !== 'end') {
       room.phase = 'day';
+      room.discussionReady = new Set();
+      room.pendingExecutionId = null;
+      room.finalVotes = new Map();
       room.actionLog.push(...logs);
     }
   }
 
   submitVote(roomCode, playerId, targetId) {
     const room = this.rooms.get(roomCode);
-    if (!room || room.phase !== 'vote') return null;
+    if (!room || (room.phase !== 'vote' && room.phase !== 'final_verdict')) return null;
 
     const player = room.players.find(p => p.id === playerId);
     if (player && player.alive) {
-      // Support SKIP votes (targetId can be "SKIP" or null)
-      room.votes.set(playerId, targetId);
-      player.hasVoted = true;
+      if (room.phase === 'vote') {
+        // Support SKIP votes (targetId can be "SKIP" or null)
+        room.votes.set(playerId, targetId);
+        player.hasVoted = true;
 
-      // Calculate current vote leader and get vote details
-      const voteLeader = this.getVoteLeader(room);
-      const voteDetails = this.getVoteDetails(room);
+        // Calculate current vote leader and get vote details
+        const voteLeader = this.getVoteLeader(room);
+        const voteDetails = this.getVoteDetails(room);
 
-      return { ...voteLeader, voteDetails };
+        return { ...voteLeader, voteDetails };
+      } else if (room.phase === 'final_verdict') {
+        if (!room.finalVotes) room.finalVotes = new Map();
+        const choice = targetId === 'EXECUTE' ? 'EXECUTE' : 'SPARE';
+        room.finalVotes.set(playerId, choice);
+        player.hasVoted = true;
+
+        const totalVotes = room.players.filter(p => p.alive).length;
+        const executeVotes = Array.from(room.finalVotes.values()).filter(v => v === 'EXECUTE').length;
+
+        return {
+          leaderId: null,
+          leaderName: choice === 'EXECUTE' ? 'Giết' : 'Không giết',
+          voteCount: executeVotes,
+          totalVotes,
+          final: true
+        };
+      }
     }
     return null;
   }
@@ -676,55 +752,97 @@ class GameManager {
       if (c > max) { max = c; targetId = id; }
     });
 
-    // Track executed player for client notification
     room.executedPlayerId = null;
+    room.pendingExecutionId = null;
+    room.defenseEndsAt = null;
 
-    if (targetId) {
+    // Lawyer Intervention check BEFORE starting defense
+    const protectedId = room.actions.get('LAWYER_PROTECT');
+
+    if (targetId && protectedId === targetId) {
       const victim = room.players.find(p => p.id === targetId);
-
-      // Lawyer Intervention
-      const protectedId = room.actions.get('LAWYER_PROTECT');
-      if (protectedId === targetId) {
-        room.actionLog.push(`⚖️ Luật sự can thiệp! ${victim.name} được miễn án tử.`);
-      } else {
-        victim.alive = false;
-        room.executedPlayerId = targetId; // Store for client notification
-        room.actionLog.push(`⚖️ ${victim.name} đã bị treo cổ.`);
-
-        // Traitor Win Logic
-        if (victim.role === ROLE_TYPES.TRAITOR) {
-          if (room.day === 1) {
-            room.winner = 'TRAITOR';
-            room.actionLog.push(`🎭 Kẻ Phản Bội ${victim.name} THẮNG nhờ bị treo cổ!`);
-            room.phase = 'end';
-            return;
-          }
-        }
-
-        // Hunter Death Link: If Hunter is executed, pinned target dies too
-        if (victim.role === ROLE_TYPES.HUNTER && victim.attributes.pinnedTargetId) {
-          const pinnedTarget = room.players.find(p => p.id === victim.attributes.pinnedTargetId);
-          if (pinnedTarget && pinnedTarget.alive) {
-            pinnedTarget.alive = false;
-            room.actionLog.push(`🏹 Thợ săn ${victim.name} chết đã kéo theo ${pinnedTarget.name}!`);
-          }
-        }
-      }
-    } else {
-      room.actionLog.push('⚖️ Không ai bị treo cổ.');
+      room.actionLog.push(`⚖️ Luật sư can thiệp! ${victim?.name || 'Người chơi'} được miễn án tử.`);
+      targetId = null; // Cancel execution path
     }
 
     room.votes.clear();
     room.actions.delete('LAWYER_PROTECT'); // Clear lawyer action
 
-    // Win Check BEFORE execution_reveal
-    this.checkWin(room);
-
-    if (room.phase !== 'end') {
+    if (targetId) {
+      const victim = room.players.find(p => p.id === targetId);
+      room.pendingExecutionId = targetId;
+      room.phase = 'defense';
+      room.defenseEndsAt = Date.now() + 30000;
+      room.actionLog.push(`🛡️ ${victim?.name || 'Người chơi'} có 30s để biện hộ!`);
+    } else {
+      room.actionLog.push('⚖️ Không ai bị treo cổ.');
       room.day++;
       room.phase = 'execution_reveal';
       room.actionLog.push('🗣️ Chuẩn bị công bố kết quả bầu cử...');
     }
+
+    // Win Check BEFORE execution_reveal
+    this.checkWin(room);
+  }
+
+  startFinalVerdict(room) {
+    room.finalVotes = new Map();
+    if (!room.pendingExecutionId) {
+      room.actionLog.push('⚖️ Không có ai để xử.');
+      room.day++;
+      room.phase = 'execution_reveal';
+      room.actionLog.push('🗣️ Chuẩn bị công bố kết quả bầu cử...');
+      return;
+    }
+
+    const victim = room.players.find(p => p.id === room.pendingExecutionId);
+    room.phase = 'final_verdict';
+    room.actionLog.push(`⚔️ Bỏ phiếu cuối: ${victim?.name || 'Người chơi'} có bị xử tử không?`);
+  }
+
+  resolveFinalVerdict(room) {
+    const victimId = room.pendingExecutionId;
+    const victim = room.players.find(p => p.id === victimId);
+
+    const executeVotes = Array.from(room.finalVotes.values()).filter(v => v === 'EXECUTE').length;
+    const spareVotes = Array.from(room.finalVotes.values()).filter(v => v === 'SPARE').length;
+
+    room.executedPlayerId = null;
+
+    if (victim && executeVotes > spareVotes) {
+      victim.alive = false;
+      room.executedPlayerId = victimId;
+      room.actionLog.push(`⚖️ Kết quả cuối: ${victim.name} bị xử tử (${executeVotes} vs ${spareVotes}).`);
+
+      if (victim.role === ROLE_TYPES.TRAITOR && room.day === 1) {
+        room.winner = 'TRAITOR';
+        room.actionLog.push(`🎭 Kẻ Phản Bội ${victim.name} THẮNG nhờ bị treo cổ!`);
+        room.phase = 'end';
+        return;
+      }
+
+      if (victim.role === ROLE_TYPES.HUNTER && victim.attributes.pinnedTargetId) {
+        const pinnedTarget = room.players.find(p => p.id === victim.attributes.pinnedTargetId);
+        if (pinnedTarget && pinnedTarget.alive) {
+          pinnedTarget.alive = false;
+          room.actionLog.push(`🏹 Thợ săn ${victim.name} chết đã kéo theo ${pinnedTarget.name}!`);
+        }
+      }
+    } else if (victim) {
+      room.actionLog.push(`🙏 ${victim.name} được tha (${executeVotes} vs ${spareVotes}).`);
+    } else {
+      room.actionLog.push('⚖️ Không có mục tiêu để xử.');
+    }
+
+  this.checkWin(room);
+  if (room.phase === 'end') return;
+
+  room.pendingExecutionId = null;
+  room.finalVotes.clear();
+  room.discussionReady = new Set();
+  room.day++;
+  room.phase = 'execution_reveal';
+  room.actionLog.push('🗣️ Chuẩn bị công bố kết quả bầu cử...');
   }
 
   // Manual Phase Advance (Host)
@@ -738,12 +856,21 @@ class GameManager {
       this.resolveNight(room);
     } else if (room.phase === 'day') {
       room.phase = 'vote';
+      room.discussionReady = new Set();
       room.actionLog.push('☀️ Thảo luận kết thúc. Bắt đầu bỏ phiếu!');
     } else if (room.phase === 'vote') {
       this.resolveVote(room);
-      // resolveVote now sets phase to 'execution_reveal' (unless game end)
+      // resolveVote now sets phase to 'defense' or 'execution_reveal'
+    } else if (room.phase === 'defense') {
+      this.startFinalVerdict(room);
+    } else if (room.phase === 'final_verdict') {
+      this.resolveFinalVerdict(room);
+      // resolveFinalVerdict sets phase to 'execution_reveal' (unless game end)
     } else if (room.phase === 'execution_reveal') {
       room.phase = 'night';
+      room.pendingExecutionId = null;
+      room.executedPlayerId = null;
+      room.lastNightDeaths = [];
       room.actionLog.push('🌙 Màn đêm buông xuống...');
     }
 
@@ -759,6 +886,11 @@ class GameManager {
     room.phase = 'lobby';
     room.day = 0;
     room.votes.clear();
+    room.finalVotes.clear();
+    room.discussionReady = new Set();
+    room.pendingExecutionId = null;
+    room.defenseEndsAt = null;
+    room.lastNightDeaths = [];
     room.actions.clear();
     room.winner = null;
     room.actionLog = ['🔄 Host đã kết thúc game. Về Lobby.'];
@@ -792,6 +924,11 @@ class GameManager {
     room.phase = 'lobby';
     room.day = 0;
     room.votes.clear();
+    room.finalVotes.clear();
+    room.discussionReady = new Set();
+    room.pendingExecutionId = null;
+    room.defenseEndsAt = null;
+    room.lastNightDeaths = [];
     room.actions.clear();
     room.winner = null;
     room.actionLog = ['🔄 Game đã được reset.'];
@@ -899,6 +1036,9 @@ class GameManager {
       const activePlayers = room.players.filter(p => p.alive && nightRoles.includes(p.role));
       total = activePlayers.length;
       submitted = activePlayers.filter(p => room.actions.has(p.id)).length;
+    } else if (room.phase === 'final_verdict') {
+      total = room.players.filter(p => p.alive).length;
+      submitted = room.finalVotes ? room.finalVotes.size : 0;
     }
 
     return { submitted, total };
@@ -918,9 +1058,25 @@ class GameManager {
         return;
       }
     }
+    if (room.phase === 'day') {
+      const alive = room.players.filter(p => !p.isHost && p.alive).length;
+      const ready = room.discussionReady ? room.discussionReady.size : 0;
+      if (alive > 0 && ready >= alive) {
+        this.advancePhase(roomCode, hostId);
+        return;
+      }
+    }
     if (room.phase === 'vote') {
       const status = this.getActionStatus(roomCode);
       if (status && status.total > 0 && status.submitted >= status.total) {
+        this.advancePhase(roomCode, hostId);
+        return;
+      }
+    }
+    if (room.phase === 'final_verdict') {
+      const alive = room.players.filter(p => !p.isHost && p.alive).length;
+      const submitted = room.finalVotes ? room.finalVotes.size : 0;
+      if (alive > 0 && submitted >= alive) {
         this.advancePhase(roomCode, hostId);
         return;
       }

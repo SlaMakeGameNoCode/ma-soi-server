@@ -154,7 +154,7 @@ app.get('/host', (req, res) => {
 io.on('connection', (socket) => {
     console.log(`Client connected: ${socket.id}`);
 
-    socket.on('CREATE_ROOM', ({ playerName }) => {
+    socket.on('CREATE_ROOM', ({ playerName, aiHost = false }) => {
         try {
             const { roomCode, playerId, token } = gameManager.createRoom(playerName);
             socket.join(roomCode);
@@ -164,6 +164,10 @@ io.on('connection', (socket) => {
 
             // Send chat state to host (creator)
             const room = gameManager.getRoom(roomCode);
+
+            if (aiHost) {
+                gameManager.enableAIHost(roomCode, playerId, true);
+            }
             socket.emit('CHAT_SYNC', { enabled: room.chatEnabled, log: room.chatLog });
 
             // Send initial player list to host
@@ -240,6 +244,21 @@ io.on('connection', (socket) => {
             console.log(`Day phase duration set to ${duration}s in room ${roomCode}`);
         } catch (error) {
             console.error('SET_DAY_DURATION error:', error);
+            socket.emit('ERROR', { message: error.message });
+        }
+    });
+
+    // Host enable/disable AI bot
+    socket.on('SET_AI_HOST_ENABLED', ({ enabled }) => {
+        const { roomCode, playerId } = socket.data;
+        try {
+            const room = gameManager.enableAIHost(roomCode, playerId, enabled);
+            // when enabling, try auto-start check and schedule timers for current phase
+            gameManager.schedulePhaseTimer(room);
+            io.to(roomCode).emit('AI_HOST_SYNC', { enabled: room.aiHostEnabled });
+            console.log(`[AI_HOST] room ${roomCode} enabled=${room.aiHostEnabled}`);
+        } catch (error) {
+            console.error('SET_AI_HOST_ENABLED error:', error);
             socket.emit('ERROR', { message: error.message });
         }
     });
@@ -352,6 +371,10 @@ io.on('connection', (socket) => {
                 });
             });
 
+            // AI auto advance if ready
+            gameManager.maybeAutoAdvance(roomCode);
+            gameManager.schedulePhaseTimer(room);
+
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
         }
@@ -418,6 +441,11 @@ io.on('connection', (socket) => {
                     });
                 }
             }
+
+            // AI auto advance if all votes in
+            gameManager.maybeAutoAdvance(roomCode);
+            const roomAfter = gameManager.getRoom(roomCode);
+            gameManager.schedulePhaseTimer(roomAfter);
 
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
@@ -512,6 +540,10 @@ io.on('connection', (socket) => {
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
         }
+
+        // AI re-schedule timer after manual advance
+        const room = gameManager.getRoom(roomCode);
+        gameManager.schedulePhaseTimer(room);
     });
 
     socket.on('END_GAME', () => {
@@ -606,7 +638,7 @@ io.on('connection', (socket) => {
             if (room) {
                 const player = room.players.find(p => p.id === playerId);
 
-                if (player && player.isHost) {
+                if (player && player.isHost && !room.aiHostEnabled) {
                     // Host disconnect - close room
                     console.log(`[SERVER] Host ${playerId} disconnected from room ${roomCode}. Closing room.`);
                     io.to(roomCode).emit('HOST_LEFT', {

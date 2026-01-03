@@ -53,11 +53,51 @@ class GameManager {
       actionLog: [],
       config: null, // Store role config
       chatEnabled: true,
-      chatLog: [] // keep latest 20 messages
+      chatLog: [], // keep latest 20 messages
+      aiHostEnabled: false,
+      aiHostId: null,
+      phaseTimer: null,
+      aiConfig: {
+        nightDuration: 45,
+        voteDuration: 30,
+        revealDuration: 5
+      }
     };
 
     this.rooms.set(roomCode, room);
     return { roomCode, playerId: hostId, token };
+  }
+
+  ensureAIHost(room) {
+    if (!room.aiHostId) {
+      const botId = nanoid();
+      room.aiHostId = botId;
+      room.players.push({
+        id: botId,
+        name: 'AI Host',
+        role: null,
+        faction: null,
+        alive: true,
+        connected: true,
+        isHost: true,
+        hasVoted: false,
+        lastAction: Date.now(),
+        token: nanoid(32),
+        attributes: {}
+      });
+    }
+  }
+
+  enableAIHost(roomCode, hostId, enabled) {
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Không tìm thấy phòng');
+    const host = room.players.find(p => p.id === hostId && p.isHost);
+    if (!host) throw new Error('Không có quyền Host');
+    room.aiHostEnabled = !!enabled;
+    if (room.aiHostEnabled) {
+      this.ensureAIHost(room);
+    }
+    return room;
   }
 
   setChatEnabled(roomCode, hostId, enabled) {
@@ -92,6 +132,64 @@ class GameManager {
       room.chatLog = room.chatLog.slice(-20);
     }
     return payload;
+  }
+
+  autoMaybeStart(room) {
+    if (!room.aiHostEnabled || room.phase !== 'lobby') return;
+    const nonHostPlayers = room.players.filter(p => !p.isHost).length;
+    const totalRoles = room.config ? Object.values(room.config).reduce((s, r) => s + r.count, 0) : 0;
+    if (nonHostPlayers >= Math.max(3, totalRoles || 3)) {
+      try {
+        this.startGame(room.roomCode, room.aiHostId || room.players.find(p => p.isHost)?.id, room.config || this.defaultRoleConfig(nonHostPlayers));
+      } catch (e) {
+        // ignore if validation fails
+      }
+    }
+  }
+
+  defaultRoleConfig(count) {
+    // minimal fallback roles: 1 wolf, rest villagers
+    const wolf = Math.max(1, Math.floor(count / 5));
+    return {
+      alphaWolf: { count: 0 },
+      wolf: { count: wolf },
+      detective: { count: 0 },
+      seer: { count: 0 },
+      witch: { count: 0 },
+      bodyguard: { count: 0 },
+      hunter: { count: 0 },
+      traitor: { count: 0 },
+      villager: { count: Math.max(0, count - wolf) }
+    };
+  }
+
+  schedulePhaseTimer(room) {
+    if (room.phaseTimer) {
+      clearTimeout(room.phaseTimer);
+      room.phaseTimer = null;
+    }
+    if (!room.aiHostEnabled) return;
+
+    const hostId = room.aiHostId || room.players.find(p => p.isHost)?.id;
+    if (!hostId) return;
+
+    const advance = () => {
+      try {
+        this.advancePhase(room.roomCode, hostId);
+      } catch (e) {
+        console.error('[AI_HOST] advance error', e.message);
+      }
+    };
+
+    if (room.phase === 'night') {
+      room.phaseTimer = setTimeout(advance, (room.aiConfig.nightDuration || 45) * 1000);
+    } else if (room.phase === 'day') {
+      room.phaseTimer = setTimeout(advance, (room.dayPhaseDuration || 60) * 1000);
+    } else if (room.phase === 'vote') {
+      room.phaseTimer = setTimeout(advance, (room.aiConfig.voteDuration || 30) * 1000);
+    } else if (room.phase === 'execution_reveal') {
+      room.phaseTimer = setTimeout(advance, (room.aiConfig.revealDuration || 5) * 1000);
+    }
   }
 
   joinRoom(roomCode, playerName, reconnectToken = null) {
@@ -650,6 +748,7 @@ class GameManager {
     room.actions.clear();
     room.winner = null;
     room.actionLog = ['🔄 Host đã kết thúc game. Về Lobby.'];
+  room.chatLog = [];
 
     // Reset players
     room.players.forEach(p => {
@@ -674,6 +773,7 @@ class GameManager {
     room.actions.clear();
     room.winner = null;
     room.actionLog = ['🔄 Game đã được reset.'];
+  room.chatLog = [];
 
     // Reset players
     room.players.forEach(p => {
@@ -742,6 +842,14 @@ class GameManager {
       room.actionLog.push('🐺 SÓI ĐÃ CHIẾN THẮNG!');
       console.log('[WIN_CHECK] Wolves win - wolves >= others');
     }
+
+    if (room.winner && room.aiHostEnabled) {
+      // clear timer on game end
+      if (room.phaseTimer) {
+        clearTimeout(room.phaseTimer);
+        room.phaseTimer = null;
+      }
+    }
   }
 
   getActionStatus(roomCode) {
@@ -764,6 +872,29 @@ class GameManager {
     }
 
     return { submitted, total };
+  }
+
+  // AI helper: if all actions/votes submitted, auto advance
+  maybeAutoAdvance(roomCode) {
+    const room = this.rooms.get(roomCode);
+    if (!room || !room.aiHostEnabled) return;
+    const hostId = room.aiHostId || room.players.find(p => p.isHost)?.id;
+    if (!hostId) return;
+
+    if (room.phase === 'night') {
+      const status = this.getActionStatus(roomCode);
+      if (status && status.total > 0 && status.submitted >= status.total) {
+        this.advancePhase(roomCode, hostId);
+        return;
+      }
+    }
+    if (room.phase === 'vote') {
+      const status = this.getActionStatus(roomCode);
+      if (status && status.total > 0 && status.submitted >= status.total) {
+        this.advancePhase(roomCode, hostId);
+        return;
+      }
+    }
   }
 
   // Getters & Helpers matching old API to avoid breaking server.js too much

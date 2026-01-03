@@ -502,6 +502,7 @@
             sessionStorage.setItem('hostRoomCode', data.roomCode);
             sessionStorage.setItem('hostPlayerId', data.playerId);
             sessionStorage.setItem('hostToken', data.token);
+            sessionStorage.setItem('hostName', data.name || 'Host');
             const url = `/join/${data.roomCode}?token=${encodeURIComponent(data.token)}&name=${encodeURIComponent(data.name || 'Host')}&fromHost=1`;
             window.location.href = url;
         });

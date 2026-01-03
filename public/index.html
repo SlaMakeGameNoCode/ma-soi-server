@@ -916,8 +916,18 @@
         const urlParams = new URLSearchParams(window.location.search);
         const roomCode = urlParams.get('room') || window.location.pathname.split('/join/')[1];
         const fromHost = urlParams.get('fromHost') === '1';
-        const reconnectToken = urlParams.get('token');
-        const presetName = urlParams.get('name');
+
+        // Prefer query token; fallback to sessionStorage (for cases where query params lost)
+        let reconnectToken = urlParams.get('token');
+        let presetName = urlParams.get('name');
+        const storedRoomCode = sessionStorage.getItem('hostRoomCode');
+        const storedToken = sessionStorage.getItem('hostToken');
+        const storedName = sessionStorage.getItem('hostName');
+        if (!reconnectToken && roomCode && storedRoomCode === roomCode && storedToken) {
+            reconnectToken = storedToken;
+            presetName = presetName || storedName || 'Host';
+        }
+
         if (roomCode) document.getElementById('roomCodeInput').value = roomCode;
         if (presetName) document.getElementById('playerNameInput').value = presetName;
     let autoJoinSent = false;

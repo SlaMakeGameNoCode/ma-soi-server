@@ -17,7 +17,7 @@ class RateLimiter {
         const now = Date.now();
         const lastMessage = this.chatLimits.get(socketId) || 0;
         const timeSinceLastMessage = now - lastMessage;
-        const CHAT_DELAY = 1500; // 1.5 seconds
+    const CHAT_DELAY = 1000; // 1 second per requirement
 
         if (timeSinceLastMessage < CHAT_DELAY) {
             return {
@@ -35,7 +35,7 @@ class RateLimiter {
      * Returns { valid: boolean, error: string }
      */
     validateChatMessage(message) {
-        const MAX_LENGTH = 80;
+    const MAX_LENGTH = 200;
         const MIN_LENGTH = 1;
 
         if (!message || message.trim().length < MIN_LENGTH) {

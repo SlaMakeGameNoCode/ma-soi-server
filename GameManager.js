@@ -51,11 +51,47 @@ class GameManager {
       actions: new Map(), // General actions map (night & day)
       winner: null,
       actionLog: [],
-      config: null // Store role config
+      config: null, // Store role config
+      chatEnabled: true,
+      chatLog: [] // keep latest 20 messages
     };
 
     this.rooms.set(roomCode, room);
     return { roomCode, playerId: hostId, token };
+  }
+
+  setChatEnabled(roomCode, hostId, enabled) {
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Không tìm thấy phòng');
+    const host = room.players.find(p => p.id === hostId && p.isHost);
+    if (!host) throw new Error('Không có quyền Host');
+    room.chatEnabled = !!enabled;
+    return room;
+  }
+
+  addChatMessage(roomCode, playerId, message) {
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Không tìm thấy phòng');
+    if (!room.chatEnabled) throw new Error('Chat đang tắt');
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) throw new Error('Người chơi không hợp lệ');
+
+    const trimmed = String(message || '').trim();
+    if (!trimmed) throw new Error('Tin nhắn trống');
+    const payload = {
+      id: nanoid(8),
+      playerId,
+      name: player.name,
+      message: trimmed.slice(0, 200),
+      ts: Date.now()
+    };
+
+    room.chatLog.push(payload);
+    if (room.chatLog.length > 20) {
+      room.chatLog = room.chatLog.slice(-20);
+    }
+    return payload;
   }
 
   joinRoom(roomCode, playerName, reconnectToken = null) {

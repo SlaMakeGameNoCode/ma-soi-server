@@ -162,8 +162,11 @@ io.on('connection', (socket) => {
             socket.data.playerId = playerId;
             socket.emit('ROOM_CREATED', { roomCode, playerId, token });
 
-            // Send initial player list to host
+            // Send chat state to host (creator)
             const room = gameManager.getRoom(roomCode);
+            socket.emit('CHAT_SYNC', { enabled: room.chatEnabled, log: room.chatLog });
+
+            // Send initial player list to host
             socket.emit('PLAYER_JOINED', {
                 players: room.players.map(p => ({
                     id: p.id,
@@ -205,6 +208,9 @@ io.on('connection', (socket) => {
                 }))
             });
 
+            // Send chat state to the joining player only
+            socket.emit('CHAT_SYNC', { enabled: room.chatEnabled, log: room.chatLog });
+
             console.log(`Player ${playerName} joined room ${roomCode}`);
         } catch (error) {
             console.error('JOIN_ROOM error:', error);
@@ -234,6 +240,19 @@ io.on('connection', (socket) => {
             console.log(`Day phase duration set to ${duration}s in room ${roomCode}`);
         } catch (error) {
             console.error('SET_DAY_DURATION error:', error);
+            socket.emit('ERROR', { message: error.message });
+        }
+    });
+
+    // Host toggle chat on/off
+    socket.on('SET_CHAT_ENABLED', ({ enabled }) => {
+        const { roomCode, playerId } = socket.data;
+        try {
+            const room = gameManager.setChatEnabled(roomCode, playerId, enabled);
+            io.to(roomCode).emit('CHAT_SYNC', { enabled: room.chatEnabled, log: room.chatLog });
+            console.log(`[CHAT] Host set chat=${room.chatEnabled} for room ${roomCode}`);
+        } catch (error) {
+            console.error('SET_CHAT_ENABLED error:', error);
             socket.emit('ERROR', { message: error.message });
         }
     });
@@ -400,6 +419,29 @@ io.on('connection', (socket) => {
                 }
             }
 
+        } catch (error) {
+            socket.emit('ERROR', { message: error.message });
+        }
+    });
+
+    // Player chat
+    socket.on('SEND_CHAT', ({ message }) => {
+        const { roomCode, playerId } = socket.data;
+        try {
+            if (!roomCode || !playerId) throw new Error('Không xác định phòng');
+            const limit = rateLimiter.checkChatLimit(socket.id);
+            if (!limit.allowed) {
+                throw new Error(`Chat quá nhanh, thử lại sau ${limit.waitTime || 1}s`);
+            }
+
+            const validation = rateLimiter.validateChatMessage(message);
+            if (!validation.valid) throw new Error(validation.error);
+
+            const room = gameManager.getRoom(roomCode);
+            if (!room || !room.chatEnabled) throw new Error('Chat đang tắt');
+
+            const payload = gameManager.addChatMessage(roomCode, playerId, message);
+            io.to(roomCode).emit('CHAT_MESSAGE', payload);
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
         }

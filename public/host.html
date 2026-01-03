@@ -283,6 +283,11 @@
                     </div>
                 </div>
 
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:12px;">
+                    <span style="color:#cbd5e1; font-weight:600;">Chat:</span>
+                    <button class="btn btn-secondary" id="toggleChatBtn" style="width:auto; padding:10px 14px;">Đang bật</button>
+                </div>
+
                 <div style="display: flex; gap: 10px;">
                     <button class="btn btn-primary" id="startGameBtn">Bắt Đầu Game</button>
                     <button class="btn btn-secondary" id="nextPhaseBtn" disabled>Phase Tiếp Theo</button>
@@ -327,6 +332,9 @@
         const resetGameBtn = document.getElementById('resetGameBtn');
         const endGameBtn = document.getElementById('endGameBtn');
         const notificationOverlay = document.getElementById('notificationOverlay');
+    const toggleChatBtn = document.getElementById('toggleChatBtn');
+
+    let chatEnabled = true;
 
         // Role State
         const roles = {
@@ -423,6 +431,13 @@
             socket.emit('CREATE_ROOM', { playerName: 'HOST' });
         });
 
+        // Toggle chat on/off
+        toggleChatBtn.addEventListener('click', () => {
+            chatEnabled = !chatEnabled;
+            socket.emit('SET_CHAT_ENABLED', { enabled: chatEnabled });
+            updateChatToggleUI();
+        });
+
         socket.on('ROOM_CREATED', (data) => {
             currentRoomCode = data.roomCode;
             roomCodeDisplay.innerText = data.roomCode;
@@ -430,6 +445,7 @@
             dashboard.classList.remove('hidden');
             initRoleConfig();
             addLog(`✅ Đã tạo phòng: ${data.roomCode}`);
+            updateChatToggleUI();
         });
 
         socket.on('PLAYER_JOINED', (data) => {
@@ -437,6 +453,11 @@
             document.getElementById('totalPlayers').innerText = data.players.length;
             document.getElementById('totalPlayersHeader').innerText = data.players.length;
             addLog(`👤 Người chơi tham gia. Tổng: ${data.players.length}`);
+        });
+
+        socket.on('CHAT_SYNC', (data) => {
+            chatEnabled = !!data.enabled;
+            updateChatToggleUI();
         });
 
         // Start Game
@@ -611,6 +632,13 @@
             alert(data.message);
             addLog(`❌ Lỗi: ${data.message}`);
         });
+
+        function updateChatToggleUI() {
+            if (!toggleChatBtn) return;
+            toggleChatBtn.innerText = chatEnabled ? 'Đang bật' : 'Đang tắt';
+            toggleChatBtn.style.background = chatEnabled ? '#10b981' : '#475569';
+            toggleChatBtn.style.color = chatEnabled ? '#000' : '#fff';
+        }
 
         // Timer Update Handler
         socket.on('TIMER_UPDATE', (data) => {

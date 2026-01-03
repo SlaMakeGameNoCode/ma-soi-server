@@ -776,27 +776,39 @@ io.on('connection', (socket) => {
                         console.log(`[SERVER] Room ${roomCode} deleted`);
                     }, 1000);
                 } else if (player) {
-                    // Regular player disconnect - REMOVE IMMEDIATELY
-                    console.log(`[SERVER] Player ${player.name} (${playerId}) disconnected from room ${roomCode}. Removing player.`);
+                    const inProgress = room.phase !== 'lobby' || room.aiHostEnabled;
+                    if (inProgress) {
+                        // Keep player for reconnection (especially host turned player in AI mode)
+                        player.connected = false;
+                        room.votes.delete(playerId);
+                        room.actions.delete(playerId);
 
-                    // Clean up player's votes and actions
-                    room.votes.delete(playerId);
-                    room.actions.delete(playerId);
+                        io.to(roomCode).emit('PLAYER_DISCONNECTED', {
+                            playerId,
+                            playerName: player.name,
+                            message: `${player.name} đã mất kết nối, chờ quay lại.`
+                        });
+                        console.log(`[SERVER] Player ${player.name} (${playerId}) disconnected from room ${roomCode}. Marked as disconnected (kept for reconnect).`);
+                    } else {
+                        // Lobby: remove entirely to free slot
+                        console.log(`[SERVER] Player ${player.name} (${playerId}) disconnected from room ${roomCode}. Removing player.`);
 
-                    // Remove player from room
-                    const playerIndex = room.players.findIndex(p => p.id === playerId);
-                    if (playerIndex !== -1) {
-                        room.players.splice(playerIndex, 1);
+                        room.votes.delete(playerId);
+                        room.actions.delete(playerId);
+
+                        const playerIndex = room.players.findIndex(p => p.id === playerId);
+                        if (playerIndex !== -1) {
+                            room.players.splice(playerIndex, 1);
+                        }
+
+                        io.to(roomCode).emit('PLAYER_REMOVED', {
+                            playerId,
+                            playerName: player.name,
+                            message: `${player.name} đã rời phòng.`
+                        });
+
+                        console.log(`[SERVER] Player ${player.name} removed from room ${roomCode}`);
                     }
-
-                    // Broadcast removal to all remaining players
-                    io.to(roomCode).emit('PLAYER_REMOVED', {
-                        playerId,
-                        playerName: player.name,
-                        message: `${player.name} đã rời phòng.`
-                    });
-
-                    console.log(`[SERVER] Player ${player.name} removed from room ${roomCode}`);
                 }
             }
         }

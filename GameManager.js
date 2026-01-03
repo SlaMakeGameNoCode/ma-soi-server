@@ -283,6 +283,16 @@ class GameManager {
       }
     }
 
+    // Reset player state for a fresh game
+    room.players.forEach(p => {
+      if (!p.isHost) {
+        p.alive = true;
+        p.connected = true;
+        p.hasVoted = false;
+        p.attributes = {};
+      }
+    });
+
     // Validation
     const totalPlayers = room.players.length;
     const totalRoles = Object.values(roleConfig).reduce((sum, r) => sum + r.count, 0);
@@ -290,7 +300,7 @@ class GameManager {
     // We can have more players than configured roles (rest become Villagers)
     // But duplicate checks should be handled
 
-    this.assignRoles(room, roleConfig);
+  this.assignRoles(room, roleConfig);
 
     room.phase = 'night';
     room.day = 1;

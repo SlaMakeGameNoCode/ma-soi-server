@@ -226,7 +226,8 @@ io.on('connection', (socket) => {
                     id: p.id,
                     name: p.name,
                     connected: p.connected,
-                    isHost: p.isHost
+                    isHost: p.isHost,
+                    alive: p.alive
                 }))
             });
 

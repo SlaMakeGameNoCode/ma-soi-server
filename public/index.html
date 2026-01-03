@@ -20,6 +20,122 @@
             padding: 20px;
         }
 
+        .top-status {
+            position: sticky;
+            top: 0;
+            z-index: 1200;
+            margin-bottom: 12px;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 12px 14px;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+        }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: #111827;
+            border: 1px solid #1f2937;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .status-chip .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .dot-green { background: #10b981; }
+        .dot-yellow { background: #fbbf24; }
+
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: linear-gradient(120deg, #1e3a8a, #312e81);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #fbbf24;
+            font-weight: 700;
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.35);
+        }
+
+        .floating-actions {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            z-index: 1800;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .fab {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            box-shadow: 0 12px 24px rgba(37, 99, 235, 0.35);
+            cursor: pointer;
+        }
+
+        .toast-container {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1900;
+        }
+
+        .toast {
+            min-width: 240px;
+            background: #0f172a;
+            border: 1px solid #1f2937;
+            border-left: 4px solid #3b82f6;
+            padding: 12px 14px;
+            border-radius: 10px;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.3);
+            animation: fadeIn 0.25s ease-out;
+        }
+
+        .phase-overlay {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(255,255,255,0.08), rgba(15,23,42,0.9));
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1850;
+            color: #fff;
+            font-size: 42px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            animation: flash 0.6s ease-out;
+        }
+
+        @keyframes flash {
+            0% { opacity: 0; transform: scale(0.9); }
+            40% { opacity: 1; transform: scale(1.03); }
+            100% { opacity: 0; transform: scale(1); }
+        }
+
         .container {
             max-width: 600px;
             margin: 0 auto;
@@ -58,6 +174,11 @@
 
         .btn-primary {
             background: #3b82f6;
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: #475569;
             color: #fff;
         }
 
@@ -351,6 +472,21 @@
 
         <!-- GAME SCREEN -->
         <div id="gameScreen" class="hidden">
+            <div class="top-status">
+                <div class="status-chip" id="aliveStatus">
+                    <span class="dot dot-green"></span>
+                    <span>Đang tải...</span>
+                </div>
+                <div class="status-chip" id="phaseStatus">
+                    <span class="dot dot-yellow"></span>
+                    <span>Pha: --</span>
+                </div>
+                <div class="role-badge" id="roleBadge" style="grid-column: span 2; justify-self: start;">
+                    <span id="roleBadgeIcon">🧩</span>
+                    <span id="roleBadgeText">Vai trò: --</span>
+                </div>
+            </div>
+
             <!-- Role Info -->
             <div class="card role-card">
                 <button class="guide-btn" onclick="showRoleGuide()" title="Hướng dẫn vai trò">❓</button>
@@ -378,11 +514,25 @@
                 <button class="btn btn-primary" id="confirmActionBtn" style="margin-top: 15px;">Xác Nhận</button>
             </div>
 
+            <div class="card" id="suspectArea" style="display:none;">
+                <h3 style="margin-bottom: 6px;">Bảng Nghi Ngờ 🕵️</h3>
+                <p style="color:#94a3b8; font-size:13px; margin-bottom:10px;">Chọn người bạn nghi là Sói (không ảnh hưởng gameplay, chỉ ghi log).</p>
+                <div id="suspectSelect" class="action-list"></div>
+                <button class="btn btn-secondary" id="confirmSuspectBtn" style="margin-top: 12px;">Gửi nghi ngờ</button>
+            </div>
+
             <!-- Logs -->
             <div class="card">
                 <h3>Thông Báo</h3>
                 <div id="gameLogs"></div>
             </div>
+        </div>
+
+        <div class="phase-overlay" id="phaseOverlay">PHASE</div>
+        <div class="toast-container" id="toastContainer"></div>
+
+        <div class="floating-actions">
+            <button class="fab" id="toggleActionFab" title="Mở/Đóng khu vực hành động">⚡</button>
         </div>
 
         <!-- Narrator Notification Modal -->
@@ -417,6 +567,8 @@
         let selectedTarget = null;
         let currentPlayers = [];
         let currentPhase = 'lobby';
+    let suspectTarget = null;
+    let suspectLocked = false;
 
         // Role Guide Data
         const ROLE_GUIDES = {
@@ -545,6 +697,96 @@
             }
         };
 
+        const ROLE_ICONS = {
+            alphaWolf: '🐺',
+            wolf: '🐺',
+            detective: '🕵️',
+            seer: '🔮',
+            witch: '🧙',
+            bodyguard: '🛡️',
+            hunter: '🏹',
+            traitor: '🎭',
+            villager: '🌾',
+            lawyer: '⚖️'
+        };
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const div = document.createElement('div');
+            div.className = 'toast';
+            const color = type === 'success' ? '#22c55e' : type === 'warn' ? '#fbbf24' : '#3b82f6';
+            div.style.borderLeftColor = color;
+            div.innerText = message;
+            container.appendChild(div);
+            setTimeout(() => div.remove(), 2200);
+        }
+
+        function showPhaseOverlay(text) {
+            const overlay = document.getElementById('phaseOverlay');
+            overlay.innerText = text;
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.style.display = 'none', 700);
+        }
+
+        function updateStatusBar(phase) {
+            const aliveStatus = document.getElementById('aliveStatus');
+            const phaseStatus = document.getElementById('phaseStatus');
+            const roleBadgeText = document.getElementById('roleBadgeText');
+            const roleBadgeIcon = document.getElementById('roleBadgeIcon');
+
+            const alive = currentPlayers.filter(p => !p.isHost && p.alive).length;
+            const total = currentPlayers.filter(p => !p.isHost).length;
+            aliveStatus.querySelector('span:last-child').innerText = `${alive} / ${total} đang sống`;
+
+            phaseStatus.querySelector('span:last-child').innerText = `Pha: ${phase || currentPhase}`;
+
+            if (myRole) {
+                roleBadgeText.innerText = `Vai trò: ${myRole.toUpperCase()}`;
+                roleBadgeIcon.innerText = ROLE_ICONS[myRole] || '🧩';
+            }
+        }
+
+        function renderSuspicionUI() {
+            const area = document.getElementById('suspectArea');
+            const list = document.getElementById('suspectSelect');
+            const btn = document.getElementById('confirmSuspectBtn');
+            const me = currentPlayers.find(p => p.id === myPlayerId);
+
+            if (!me || !me.alive || currentPhase !== 'night') {
+                area.style.display = 'none';
+                return;
+            }
+
+            area.style.display = 'block';
+            list.innerHTML = '';
+            suspectTarget = null;
+            btn.disabled = false;
+
+            currentPlayers.filter(p => !p.isHost && p.alive && p.id !== myPlayerId).forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'action-btn';
+                div.innerText = `${p.name}`;
+                div.onclick = () => {
+                    document.querySelectorAll('#suspectSelect .action-btn').forEach(b => b.classList.remove('selected'));
+                    div.classList.add('selected');
+                    suspectTarget = p.id;
+                };
+                list.appendChild(div);
+            });
+
+            btn.onclick = () => {
+                if (!suspectTarget) return alert('Chưa chọn ai để nghi ngờ');
+                if (suspectLocked) return;
+                suspectLocked = true;
+                socket.emit('SUSPECT_VOTE', { targetId: suspectTarget });
+                showToast('Đã gửi nghi ngờ', 'success');
+                btn.disabled = true;
+                btn.innerText = 'Đã gửi';
+                setTimeout(() => btn.innerText = 'Gửi nghi ngờ', 1200);
+            };
+        }
+
         // DOM Elements
         const screens = {
             join: document.getElementById('joinScreen'),
@@ -577,6 +819,8 @@
         socket.on('PLAYER_JOINED', (data) => {
             currentPlayers = data.players;
             renderLobby(data.players);
+            updateStatusBar();
+            renderSuspicionUI();
 
             // If in game, refresh Action UI to reflect Alive statuses
             if (currentPhase !== 'lobby' && currentPhase !== 'end') {
@@ -596,6 +840,9 @@
             showScreen('game');
             renderRole(data.role, myName);
             setupActionUI('night'); // Start at night
+            updateStatusBar('NIGHT 1');
+            showPhaseOverlay('NIGHT 1');
+            renderSuspicionUI();
         });
 
         socket.on('PHASE_CHANGED', (data) => {
@@ -605,6 +852,7 @@
 
             document.getElementById('phaseDisplay').innerText = phaseText;
             addTypesLogs(data.logs);
+            showPhaseOverlay(phaseText);
 
             // Check if current player died
             const me = currentPlayers.find(p => p.id === myPlayerId);
@@ -616,6 +864,7 @@
             // Narrator Popups
             if (data.phase === 'day') {
                 showNarrator('BAN NGÀY ☀️', `Trời sáng rồi!`);
+                suspectLocked = true;
 
                 // Check if player died during night
                 setTimeout(() => {
@@ -626,8 +875,11 @@
                 }, 500);
             } else if (data.phase === 'vote') {
                 showNarrator('BỎ PHIẾU 🗳️', 'Mọi người hãy bỏ phiếu treo cổ!');
+                suspectLocked = true;
             } else if (data.phase === 'night') {
                 showNarrator('BAN ĐÊM 🌙', `Đêm thứ ${data.day}. Các chức năng hoạt động!`);
+                suspectLocked = false;
+                renderSuspicionUI();
 
                 // Check if player died during vote/execution
                 setTimeout(() => {
@@ -738,9 +990,19 @@
                 notification.style.display = 'block';
                 leaderName.innerText = data.leaderName;
                 voteCount.innerText = `${data.voteCount} / ${data.totalVotes} phiếu`;
+                showToast(`Đang dẫn: ${data.leaderName} (${data.voteCount}/${data.totalVotes})`, 'warn');
             } else {
                 notification.style.display = 'none';
             }
+        });
+
+        socket.on('SUSPECT_LOG', (data) => {
+            addTypesLogs([data.message]);
+            showToast('Đã nhận log nghi ngờ', 'info');
+        });
+
+        socket.on('SUSPECT_VOTE_OK', () => {
+            showToast('Hệ thống đã ghi lại nghi ngờ của bạn', 'success');
         });
 
         // NEW: Vote Cast Notification (Public Vote Visibility)
@@ -990,6 +1252,14 @@
             modal.style.display = 'none';
         };
 
+        // Floating action toggle
+        const toggleFab = document.getElementById('toggleActionFab');
+        toggleFab.onclick = () => {
+            const area = document.getElementById('actionArea');
+            area.classList.toggle('hidden');
+            toggleFab.innerText = area.classList.contains('hidden') ? '🧭' : '⚡';
+        };
+
         // --- DEATH NOTIFICATION (Enhanced) ---
         function showDeathNotification() {
             // Create dramatic death overlay
@@ -1080,6 +1350,13 @@
 
             document.getElementById('roleName').innerText = `${name} - ${titles[role] || role}`;
             document.getElementById('roleDesc').innerText = descs[role] || '';
+
+            const badgeText = document.getElementById('roleBadgeText');
+            const badgeIcon = document.getElementById('roleBadgeIcon');
+            badgeText.innerText = `Vai trò: ${titles[role] || role}`;
+            badgeIcon.innerText = ROLE_ICONS[role] || '🧩';
+
+            updateStatusBar();
         }
 
         function setupActionUI(phase) {
@@ -1236,8 +1513,10 @@
 
                 if (actionType === 'VOTE') {
                     socket.emit('VOTE', { targetId: selectedTarget });
+                    showToast('Đã gửi phiếu', 'success');
                 } else {
                     socket.emit('ACTION', { type: actionType, targetId: selectedTarget });
+                    showToast('Đã gửi hành động', 'success');
                 }
 
                 btn.disabled = true;
@@ -1248,6 +1527,9 @@
                     btn.style.display = 'none';
                 }, 500);
             };
+
+            // Suspicion panel always rendered in night for all roles
+            renderSuspicionUI();
         }
 
         function addTypesLogs(logs) {

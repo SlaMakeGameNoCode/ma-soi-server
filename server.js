@@ -289,6 +289,27 @@ io.on('connection', (socket) => {
         }
     });
 
+    // SUSPECT vote (noise only, no gameplay impact)
+    socket.on('SUSPECT_VOTE', ({ targetId }) => {
+        const { roomCode, playerId } = socket.data;
+        try {
+            const room = gameManager.getRoom(roomCode);
+            if (!room) throw new Error('Không tìm thấy phòng');
+            const player = room.players.find(p => p.id === playerId);
+            if (!player || !player.alive) throw new Error('Người chơi không hợp lệ');
+            if (room.phase !== 'night') throw new Error('Chỉ gửi nghi ngờ vào ban đêm');
+
+            const target = room.players.find(p => p.id === targetId);
+            const targetName = target ? target.name : 'ai đó';
+            const message = `🧩 ${player.name} nghi ngờ ${targetName} là Sói`;
+            room.actionLog.push(message);
+            io.to(roomCode).emit('SUSPECT_LOG', { message });
+            socket.emit('SUSPECT_VOTE_OK');
+        } catch (error) {
+            socket.emit('ERROR', { message: error.message });
+        }
+    });
+
     socket.on('VOTE', ({ targetId }) => {
         const { roomCode, playerId } = socket.data;
         try {

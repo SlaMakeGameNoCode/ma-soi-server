@@ -602,6 +602,11 @@
             socket.emit('GET_PLAYERS');
         });
 
+        // Suspect logs from players (noise-only info)
+        socket.on('SUSPECT_LOG', (data) => {
+            if (data?.message) addLog(data.message);
+        });
+
         socket.on('ERROR', (data) => {
             alert(data.message);
             addLog(`❌ Lỗi: ${data.message}`);

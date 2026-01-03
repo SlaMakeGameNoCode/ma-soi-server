@@ -562,6 +562,9 @@ io.on('connection', (socket) => {
                 day: 0,
                 logs: room.actionLog
             });
+
+            // Clear chat and sync
+            io.to(roomCode).emit('CHAT_SYNC', { enabled: room.chatEnabled, log: room.chatLog });
         } catch (error) {
             console.error('[SERVER] END_GAME error:', error);
             socket.emit('ERROR', { message: error.message });
@@ -581,6 +584,9 @@ io.on('connection', (socket) => {
                 day: 0,
                 logs: room.actionLog
             });
+
+            // Clear chat and sync
+            io.to(roomCode).emit('CHAT_SYNC', { enabled: room.chatEnabled, log: room.chatLog });
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
         }

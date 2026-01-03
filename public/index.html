@@ -1434,7 +1434,7 @@
         // --- CHAT UI ---
         function updateChatUI() {
             if (!chatCard) return;
-            chatCard.style.display = 'block';
+            chatCard.style.display = chatEnabled ? 'block' : 'none';
             if (chatEnabled) {
                 chatSendBtn.disabled = false;
                 chatInput.disabled = false;

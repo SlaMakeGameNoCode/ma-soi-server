@@ -998,6 +998,11 @@
                 setupActionUI(currentPhase);
                 showPhaseOverlay((currentPhase || '').toUpperCase());
             }
+
+            // Safety: request a fresh players list after reconnect to avoid stale alive flags
+            setTimeout(() => {
+                try { socket.emit('GET_PLAYERS'); } catch (e) { }
+            }, 200);
         });
 
         socket.on('PLAYER_JOINED', (data) => {
@@ -1043,6 +1048,11 @@
             updateStatusBar('NIGHT 1');
             showPhaseOverlay('NIGHT 1');
             renderSuspicionUI();
+
+            // Safety: refresh players shortly after game start
+            setTimeout(() => {
+                try { socket.emit('GET_PLAYERS'); } catch (e) { }
+            }, 300);
         });
 
         socket.on('PHASE_CHANGED', (data) => {

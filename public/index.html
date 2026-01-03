@@ -510,6 +510,9 @@
             <!-- Action Area -->
             <div class="card" id="actionArea">
                 <h3 id="actionTitle" style="margin-bottom: 10px;">Hành Động</h3>
+                <div id="wolfKillNotice" class="hidden" style="display:none; margin-bottom:10px; padding:10px; border-radius:8px; background:#0f172a; border:1px solid #f97316; color:#fbbf24; font-weight:600;">
+                    🐺 Sói đang nhắm: <span id="wolfKillTarget">--</span>
+                </div>
                 <div id="playerSelect" class="action-list"></div>
                 <button class="btn btn-primary" id="confirmActionBtn" style="margin-top: 15px;">Xác Nhận</button>
             </div>
@@ -1011,6 +1014,21 @@
             addTypesLogs([logMsg]);
         });
 
+        // NEW: Wolf target preview (show to all wolves when any wolf sets KILL target)
+        socket.on('WOLF_KILL_PREVIEW', (data) => {
+            const me = currentPlayers.find(p => p.id === myPlayerId);
+            if (!me || !(me.role === 'wolf' || me.role === 'alphaWolf')) return;
+
+            const banner = document.getElementById('wolfKillNotice');
+            const targetSpan = document.getElementById('wolfKillTarget');
+            if (!banner || !targetSpan) return;
+
+            targetSpan.innerText = data.targetName || 'Unknown';
+            banner.style.display = 'block';
+            banner.classList.remove('hidden');
+            showToast(`🐺 ${data.by} vote giết ${data.targetName}`, 'warn');
+        });
+
         // NEW: Player Removed Handler (Auto-Disconnect)
         socket.on('PLAYER_REMOVED', (data) => {
             // If I was removed, redirect to join page
@@ -1461,6 +1479,13 @@
                 return;
             }
             actionArea.classList.remove('hidden');
+
+            // Hide wolf banner by default; will show on preview events
+            const wolfBanner = document.getElementById('wolfKillNotice');
+            if (wolfBanner) {
+                wolfBanner.style.display = 'none';
+                wolfBanner.classList.add('hidden');
+            }
 
             // Render targets (Alive players excluding self and Host)
             // IMPORTANT: Filter out dead players from vote list

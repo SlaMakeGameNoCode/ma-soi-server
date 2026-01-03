@@ -1,6 +1,7 @@
 const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
+const fs = require('fs');
 const { GameManager } = require('./GameManager');
 const { RateLimiter } = require('./RateLimiter');
 
@@ -18,6 +19,32 @@ const rateLimiter = new RateLimiter();
 
 // Server start time for uptime calculation
 const serverStartTime = Date.now();
+
+// Helper: get container memory limit (cgroup) or fallback
+const getMemoryLimitMB = () => {
+    try {
+        // cgroup v2 exposes memory.max; value can be "max" (no limit)
+        const raw = fs.readFileSync('/sys/fs/cgroup/memory.max', 'utf8').trim();
+        if (raw !== 'max') {
+            const bytes = parseInt(raw, 10);
+            if (!Number.isNaN(bytes) && bytes > 0) {
+                return Math.round(bytes / 1024 / 1024);
+            }
+        }
+    } catch (err) {
+        // ignore, fallback below
+    }
+
+    // Render free tier ~512MB; allow override
+    const envLimit = parseInt(process.env.MEMORY_LIMIT_MB || '0', 10);
+    if (!Number.isNaN(envLimit) && envLimit > 0) {
+        return envLimit;
+    }
+
+    return 512; // sensible default
+};
+
+const CONTAINER_MEMORY_LIMIT_MB = getMemoryLimitMB();
 
 // Serve static files
 app.use(express.static('public'));
@@ -52,11 +79,14 @@ app.get('/api/admin/stats', adminAuth, (req, res) => {
     const activeGames = rooms.filter(r => r.phase !== 'lobby').length;
     const uptime = Math.floor((Date.now() - serverStartTime) / 1000);
 
-    // Memory usage
+    // Memory usage (use RSS vs container limit for accuracy on small plans)
     const memUsage = process.memoryUsage();
-    const memoryUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
-    const memoryTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
-    const memoryPercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
+    const rssMB = Math.round(memUsage.rss / 1024 / 1024);
+    const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    const heapTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+    const memoryTotalMB = CONTAINER_MEMORY_LIMIT_MB;
+    const memoryUsedMB = rssMB;
+    const memoryPercent = Math.min(100, Math.round((rssMB / CONTAINER_MEMORY_LIMIT_MB) * 100));
 
     // CPU usage (approximate)
     const cpuUsage = process.cpuUsage();
@@ -79,6 +109,8 @@ app.get('/api/admin/stats', adminAuth, (req, res) => {
         memoryUsedMB,
         memoryTotalMB,
         memoryPercent,
+        heapUsedMB,
+        heapTotalMB,
         cpuPercent,
         rooms: roomsData
     });
@@ -254,6 +286,23 @@ io.on('connection', (socket) => {
                             console.log(`[WITCH_PREVIEW] Sent to ${witch.name}: ${target?.name} will die`);
                         }
                     }
+
+                    // Broadcast wolf target preview to all wolves/alpha wolves
+                    const wolfSockets = Array.from(io.sockets.sockets.values())
+                        .filter(s => {
+                            const pid = s.data.playerId;
+                            return room.players.some(p => p.id === pid && p.alive && (p.role === 'wolf' || p.role === 'alpha_wolf'));
+                        });
+
+                    const target = room.players.find(p => p.id === targetId);
+                    wolfSockets.forEach(ws => {
+                        ws.emit('WOLF_KILL_PREVIEW', {
+                            targetId,
+                            targetName: target ? target.name : 'Unknown',
+                            by: actor.name
+                        });
+                    });
+                    console.log(`[WOLF_PREVIEW] Wolves notified about target ${target?.name}`);
                 }
             }
 

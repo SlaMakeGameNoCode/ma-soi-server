@@ -763,6 +763,9 @@ io.on('connection', (socket) => {
 
                 const playerView = gameManager.getPlayerView(roomCode, playerId);
                 console.log(`[GET_PLAYERS] room ${roomCode} player ${playerId} returned ${playerView.players.length} players`);
+                // Debug: check if alive is present
+                const me = playerView.players.find(p => p.id === playerId);
+                console.log(`[GET_PLAYERS] me in response:`, me ? `${me.name} alive=${me.alive}` : 'NOT FOUND');
                 socket.emit('PLAYER_JOINED', { players: playerView.players });
             }
         }

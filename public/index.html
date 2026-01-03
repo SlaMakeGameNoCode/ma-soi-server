@@ -994,13 +994,16 @@
         socket.on('RECONNECTED', (data) => {
             myPlayerId = data.playerId || myPlayerId;
             myRole = data.role || myRole;
+            console.log('[CLIENT] RECONNECTED: myPlayerId=', myPlayerId, 'myRole=', myRole);
             const state = data.gameState;
             if (state) {
                 currentPlayers = state.players || currentPlayers;
                 currentPhase = state.phase || currentPhase;
+                console.log('[CLIENT] RECONNECTED state: phase=', currentPhase, 'players=', currentPlayers.length);
                 showScreen('game');
                 // Ensure role/name UI is consistent after reconnect
                 const meNow = currentPlayers.find(p => p.id === myPlayerId);
+                console.log('[CLIENT] RECONNECTED me:', meNow ? `${meNow.name} alive=${meNow.alive}` : 'NOT FOUND');
                 renderRole(myRole, meNow ? meNow.name : 'Bạn');
 
                 updateStatusBar(`Pha: ${currentPhase}`);
@@ -1013,6 +1016,10 @@
 
         socket.on('PLAYER_JOINED', (data) => {
             currentPlayers = data.players;
+            console.log('[CLIENT] PLAYER_JOINED: received', data.players.length, 'players. myPlayerId=', myPlayerId);
+            const me = currentPlayers.find(p => p.id === myPlayerId);
+            console.log('[CLIENT] Found me:', me ? `${me.name} alive=${me.alive}` : 'NOT FOUND');
+            
             renderLobby(data.players);
             updateStatusBar();
             renderSuspicionUI();
@@ -1724,6 +1731,7 @@
 
             // Check Alive Status
             const me = currentPlayers.find(p => p.id === myPlayerId);
+            console.log('[setupActionUI] phase=', phase, 'myPlayerId=', myPlayerId, 'me=', me ? `${me.name} alive=${me.alive}` : 'NOT FOUND');
             if (!me) {
                 // Not synced yet: DON'T treat as dead. Show loading state.
                 actionArea.classList.add('hidden');
@@ -1733,6 +1741,7 @@
                 btn.style.display = 'none';
 
                 // Ask server for latest state
+                console.log('[setupActionUI] Requesting GET_PLAYERS because me not found');
                 try { socket.emit('GET_PLAYERS'); } catch (e) { }
                 return;
             }

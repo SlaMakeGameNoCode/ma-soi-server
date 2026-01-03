@@ -750,7 +750,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('GET_PLAYERS', () => {
-        const { roomCode } = socket.data;
+        const { roomCode, playerId } = socket.data;
         if (roomCode) {
             const room = gameManager.getRoom(roomCode);
             if (room) {
@@ -761,7 +761,8 @@ io.on('connection', (socket) => {
                 // Host IS valid in this check: room.players.find(h => h.id === playerId)?.isHost
                 // So getPlayerView SHOULD reveal all roles to Host.
 
-                const playerView = gameManager.getPlayerView(roomCode, socket.data.playerId);
+                const playerView = gameManager.getPlayerView(roomCode, playerId);
+                console.log(`[GET_PLAYERS] room ${roomCode} player ${playerId} returned ${playerView.players.length} players`);
                 socket.emit('PLAYER_JOINED', { players: playerView.players });
             }
         }

@@ -806,7 +806,9 @@
 
         function isCurrentPlayerDead() {
             const me = currentPlayers.find(p => p.id === myPlayerId);
-            return !me || !me.alive;
+            // If we don't have our row yet, treat as "unknown" (not dead) to avoid disabling UI prematurely.
+            if (!me) return false;
+            return !me.alive;
         }
 
         function updateReadyUI(totalOverride = null) {
@@ -860,7 +862,14 @@
             const btn = document.getElementById('confirmSuspectBtn');
             const me = currentPlayers.find(p => p.id === myPlayerId);
 
-            if (!me || !me.alive || currentPhase !== 'night') {
+            if (!me) {
+                area.style.display = 'none';
+                // Request latest state; this avoids misclassifying as dead during initial sync.
+                try { socket.emit('GET_PLAYERS'); } catch (e) { }
+                return;
+            }
+
+            if (!me.alive || currentPhase !== 'night') {
                 area.style.display = 'none';
                 return;
             }
@@ -999,10 +1008,7 @@
                 showPhaseOverlay((currentPhase || '').toUpperCase());
             }
 
-            // Safety: request a fresh players list after reconnect to avoid stale alive flags
-            setTimeout(() => {
-                try { socket.emit('GET_PLAYERS'); } catch (e) { }
-            }, 200);
+            // Note: setupActionUI now handles missing player data by requesting GET_PLAYERS.
         });
 
         socket.on('PLAYER_JOINED', (data) => {
@@ -1049,10 +1055,7 @@
             showPhaseOverlay('NIGHT 1');
             renderSuspicionUI();
 
-            // Safety: refresh players shortly after game start
-            setTimeout(() => {
-                try { socket.emit('GET_PLAYERS'); } catch (e) { }
-            }, 300);
+            // Note: setupActionUI now handles missing player data by requesting GET_PLAYERS.
         });
 
         socket.on('PHASE_CHANGED', (data) => {
@@ -1721,7 +1724,20 @@
 
             // Check Alive Status
             const me = currentPlayers.find(p => p.id === myPlayerId);
-            if (!me || !me.alive) {
+            if (!me) {
+                // Not synced yet: DON'T treat as dead. Show loading state.
+                actionArea.classList.add('hidden');
+                title.innerHTML = '⏳ ĐANG ĐỒNG BỘ';
+                container.innerHTML = '<p style="color: #94a3b8; text-align: center; padding: 20px;">Đang tải dữ liệu người chơi... vui lòng đợi 1 chút.</p>';
+                actionArea.classList.remove('hidden');
+                btn.style.display = 'none';
+
+                // Ask server for latest state
+                try { socket.emit('GET_PLAYERS'); } catch (e) { }
+                return;
+            }
+
+            if (!me.alive) {
                 // If dead, hide actions but show observer mode indicator
                 actionArea.classList.add('hidden');
 

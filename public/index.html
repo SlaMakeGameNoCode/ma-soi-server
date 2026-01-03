@@ -913,10 +913,13 @@
         const chatDisabled = document.getElementById('chatDisabled');
 
         // URL Params
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomCode = urlParams.get('room') || window.location.pathname.split('/join/')[1];
-    const fromHost = urlParams.get('fromHost') === '1';
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomCode = urlParams.get('room') || window.location.pathname.split('/join/')[1];
+        const fromHost = urlParams.get('fromHost') === '1';
+        const reconnectToken = urlParams.get('token');
+        const presetName = urlParams.get('name');
         if (roomCode) document.getElementById('roomCodeInput').value = roomCode;
+        if (presetName) document.getElementById('playerNameInput').value = presetName;
 
         // --- HANDLERS ---
 
@@ -926,6 +929,11 @@
 
             socket.emit('JOIN_ROOM', { roomCode, playerName: name });
         });
+
+        // Auto join if token provided (ex-host in AI mode)
+        if (roomCode && reconnectToken) {
+            socket.emit('JOIN_ROOM', { roomCode, playerName: presetName || 'Host', token: reconnectToken });
+        }
 
         readyBtn.addEventListener('click', () => {
             if (readySent) return;
@@ -953,6 +961,20 @@
             myPlayerId = data.playerId;
             showScreen('lobby');
             document.getElementById('lobbyRoomCode').innerText = data.roomCode;
+        });
+
+        socket.on('RECONNECTED', (data) => {
+            myPlayerId = data.playerId || myPlayerId;
+            myRole = data.role || myRole;
+            const state = data.gameState;
+            if (state) {
+                currentPlayers = state.players || currentPlayers;
+                currentPhase = state.phase || currentPhase;
+                showScreen('game');
+                updateStatusBar(`Pha: ${currentPhase}`);
+                setupActionUI(currentPhase);
+                showPhaseOverlay((currentPhase || '').toUpperCase());
+            }
         });
 
         socket.on('PLAYER_JOINED', (data) => {

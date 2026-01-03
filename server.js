@@ -207,7 +207,7 @@ io.on('connection', (socket) => {
             if (reconnected) {
                 const playerView = gameManager.getPlayerView(roomCode, playerId);
                 const player = playerView.players.find(p => p.id === playerId);
-                socket.emit('RECONNECTED', { gameState: playerView, role: player ? player.role : null });
+                socket.emit('RECONNECTED', { gameState: playerView, role: player ? player.role : null, playerId });
             } else {
                 socket.emit('ROOM_CREATED', { roomCode, playerId, token: playerToken });
             }

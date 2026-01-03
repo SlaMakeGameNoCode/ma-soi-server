@@ -132,6 +132,17 @@
             border-color: #ef4444;
         }
 
+        .text-input {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-size: 16px;
+            margin-bottom: 14px;
+        }
+
         #gameLog {
             height: 200px;
             overflow-y: auto;
@@ -196,6 +207,8 @@
             <div class="card" style="text-align: center;">
                 <h1>Ma Sói Host Panel</h1>
                 <p style="color: #94a3b8; margin-bottom: 20px;">Bảng điều khiển cho Quản Trò</p>
+                <input id="hostNameInput" class="text-input" maxlength="30" autocomplete="off"
+                    placeholder="Tên của bạn (Quản Trò)" />
                 <button class="btn btn-primary" id="createRoomBtn">Tạo Phòng Mới</button>
             </div>
         </div>
@@ -337,6 +350,7 @@
         const resetGameBtn = document.getElementById('resetGameBtn');
         const endGameBtn = document.getElementById('endGameBtn');
         const notificationOverlay = document.getElementById('notificationOverlay');
+        const hostNameInput = document.getElementById('hostNameInput');
     const toggleChatBtn = document.getElementById('toggleChatBtn');
     const toggleAIHostBtn = document.getElementById('toggleAIHostBtn');
 
@@ -435,7 +449,8 @@
 
         // Socket Events
         document.getElementById('createRoomBtn').addEventListener('click', () => {
-            socket.emit('CREATE_ROOM', { playerName: 'HOST', aiHost: aiHostEnabled });
+            const name = (hostNameInput.value || '').trim() || 'Host';
+            socket.emit('CREATE_ROOM', { playerName: name, aiHost: aiHostEnabled });
         });
 
         // Toggle chat on/off
@@ -478,6 +493,17 @@
         socket.on('AI_HOST_SYNC', (data) => {
             aiHostEnabled = !!data.enabled;
             updateAIToggleUI();
+        });
+
+        // When AI host is enabled and game starts, host is turned into player
+        socket.on('HOST_BECAME_PLAYER', (data) => {
+            // Persist for player page to return after game
+            sessionStorage.setItem('returnToHost', '1');
+            sessionStorage.setItem('hostRoomCode', data.roomCode);
+            sessionStorage.setItem('hostPlayerId', data.playerId);
+            sessionStorage.setItem('hostToken', data.token);
+            const url = `/join/${data.roomCode}?token=${encodeURIComponent(data.token)}&name=${encodeURIComponent(data.name || 'Host')}&fromHost=1`;
+            window.location.href = url;
         });
 
         // Start Game

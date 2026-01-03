@@ -46,6 +46,13 @@ const getMemoryLimitMB = () => {
 
 const CONTAINER_MEMORY_LIMIT_MB = getMemoryLimitMB();
 
+// Normalize a display name with fallback and length cap
+const sanitizeName = (name, fallback = 'Người chơi') => {
+    const trimmed = String(name || '').trim();
+    const safe = trimmed || fallback;
+    return safe.slice(0, 30);
+};
+
 // Serve static files
 app.use(express.static('public'));
 app.use(express.json());
@@ -156,7 +163,8 @@ io.on('connection', (socket) => {
 
     socket.on('CREATE_ROOM', ({ playerName, aiHost = false }) => {
         try {
-            const { roomCode, playerId, token } = gameManager.createRoom(playerName);
+            const hostName = sanitizeName(playerName, 'Host');
+            const { roomCode, playerId, token } = gameManager.createRoom(hostName);
             socket.join(roomCode);
             socket.data.roomCode = roomCode;
             socket.data.playerId = playerId;
@@ -180,7 +188,7 @@ io.on('connection', (socket) => {
                 }))
             });
 
-            console.log(`Room created: ${roomCode} by ${playerName}`);
+            console.log(`Room created: ${roomCode} by ${hostName}`);
         } catch (error) {
             console.error('CREATE_ROOM error:', error);
             socket.emit('ERROR', { message: error.message });
@@ -189,7 +197,8 @@ io.on('connection', (socket) => {
 
     socket.on('JOIN_ROOM', ({ roomCode, playerName, token }) => {
         try {
-            const { playerId, token: playerToken, reconnected } = gameManager.joinRoom(roomCode, playerName, token);
+            const safeName = sanitizeName(playerName, 'Người chơi');
+            const { playerId, token: playerToken, reconnected } = gameManager.joinRoom(roomCode, safeName, token);
             socket.join(roomCode);
             socket.data.roomCode = roomCode;
             socket.data.playerId = playerId;
@@ -287,6 +296,21 @@ io.on('connection', (socket) => {
                     io.to(socketId).emit('GAME_STARTED', { role: player.role, players: result.players });
                 }
             });
+
+            // If AI host mode, notify owner to join as player
+            const room = gameManager.getRoom(roomCode);
+            if (room.aiHostEnabled && room.ownerId) {
+                const ownerSocket = Array.from(io.sockets.sockets.values()).find(s => s.data.playerId === room.ownerId);
+                const ownerPlayer = room.players.find(p => p.id === room.ownerId);
+                if (ownerSocket && ownerPlayer) {
+                    ownerSocket.emit('HOST_BECAME_PLAYER', {
+                        roomCode,
+                        playerId: ownerPlayer.id,
+                        token: ownerPlayer.token,
+                        name: ownerPlayer.name || 'Host'
+                    });
+                }
+            }
             console.log(`Game started in room ${roomCode}`);
         } catch (error) {
             console.error('START_GAME error:', error);
@@ -565,6 +589,14 @@ io.on('connection', (socket) => {
 
             // Clear chat and sync
             io.to(roomCode).emit('CHAT_SYNC', { enabled: room.chatEnabled, log: room.chatLog });
+
+            // If owner was playing, ask them to return to setup
+            if (room.ownerId) {
+                const ownerSocket = Array.from(io.sockets.sockets.values()).find(s => s.data.playerId === room.ownerId);
+                if (ownerSocket) {
+                    ownerSocket.emit('HOST_RETURN_TO_SETUP', { roomCode });
+                }
+            }
         } catch (error) {
             console.error('[SERVER] END_GAME error:', error);
             socket.emit('ERROR', { message: error.message });
@@ -587,6 +619,14 @@ io.on('connection', (socket) => {
 
             // Clear chat and sync
             io.to(roomCode).emit('CHAT_SYNC', { enabled: room.chatEnabled, log: room.chatLog });
+
+            // If owner was playing, ask them to return to setup
+            if (room.ownerId) {
+                const ownerSocket = Array.from(io.sockets.sockets.values()).find(s => s.data.playerId === room.ownerId);
+                if (ownerSocket) {
+                    ownerSocket.emit('HOST_RETURN_TO_SETUP', { roomCode });
+                }
+            }
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
         }

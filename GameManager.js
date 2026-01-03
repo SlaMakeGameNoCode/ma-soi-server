@@ -24,19 +24,22 @@ class GameManager {
   }
 
   createRoom(hostName) {
+    const safeHostName = String(hostName || 'Host').trim() || 'Host';
+    const normalizedHostName = safeHostName.slice(0, 30);
     const roomCode = nanoid(6).toUpperCase();
     const hostId = nanoid();
     const token = nanoid(32);
 
     const room = {
       roomCode,
+      ownerId: hostId,
       phase: 'lobby',
       day: 0,
       maxPlayers: 15, // Default max players (excluding host)
       dayPhaseDuration: 60, // Default day phase duration in seconds
       players: [{
         id: hostId,
-        name: hostName,
+        name: normalizedHostName,
         role: null,
         faction: null,
         alive: true,
@@ -193,6 +196,8 @@ class GameManager {
   }
 
   joinRoom(roomCode, playerName, reconnectToken = null) {
+    const safePlayerName = String(playerName || 'Người chơi').trim() || 'Người chơi';
+    const normalizedPlayerName = safePlayerName.slice(0, 30);
     const room = this.rooms.get(roomCode);
     if (!room) throw new Error('Room not found');
 
@@ -217,7 +222,7 @@ class GameManager {
 
     room.players.push({
       id: playerId,
-      name: playerName,
+      name: normalizedPlayerName,
       role: null,
       faction: null,
       alive: true,
@@ -235,9 +240,18 @@ class GameManager {
   startGame(roomCode, hostId, roleConfig) {
     const room = this.rooms.get(roomCode);
     if (!room) throw new Error('Room not found');
-
     const host = room.players.find(p => p.id === hostId);
-    if (!host || !host.isHost) throw new Error('Permission denied');
+    const aiHostOk = room.aiHostEnabled && room.aiHostId === hostId;
+    if (!host || (!host.isHost && !aiHostOk)) throw new Error('Permission denied');
+
+    if (room.aiHostEnabled) {
+      this.ensureAIHost(room);
+      // Convert owner host to player so they get a role
+      const owner = room.players.find(p => p.id === room.ownerId);
+      if (owner) {
+        owner.isHost = false;
+      }
+    }
 
     // Validation
     const totalPlayers = room.players.length;
@@ -750,6 +764,14 @@ class GameManager {
     room.actionLog = ['🔄 Host đã kết thúc game. Về Lobby.'];
   room.chatLog = [];
 
+    // Restore owner as host in lobby
+    const owner = room.players.find(p => p.id === room.ownerId);
+    if (owner) {
+      owner.isHost = true;
+      owner.role = null;
+      owner.faction = null;
+    }
+
     // Reset players
     room.players.forEach(p => {
       p.role = null;
@@ -774,6 +796,14 @@ class GameManager {
     room.winner = null;
     room.actionLog = ['🔄 Game đã được reset.'];
   room.chatLog = [];
+
+    // Restore owner as host in lobby
+    const owner = room.players.find(p => p.id === room.ownerId);
+    if (owner) {
+      owner.isHost = true;
+      owner.role = null;
+      owner.faction = null;
+    }
 
     // Reset players
     room.players.forEach(p => {

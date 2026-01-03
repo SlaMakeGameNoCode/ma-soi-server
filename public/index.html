@@ -873,8 +873,9 @@
         const chatDisabled = document.getElementById('chatDisabled');
 
         // URL Params
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomCode = urlParams.get('room') || window.location.pathname.split('/join/')[1];
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCode = urlParams.get('room') || window.location.pathname.split('/join/')[1];
+    const fromHost = urlParams.get('fromHost') === '1';
         if (roomCode) document.getElementById('roomCodeInput').value = roomCode;
 
         // --- HANDLERS ---
@@ -995,6 +996,11 @@
                 }
 
                 showNarrator(winnerTitle, winnerMsg);
+
+                // Mark to return host UI after end if this client is ex-host
+                if (fromHost) {
+                    sessionStorage.setItem('returnToHost', '1');
+                }
             } else if (data.phase === 'execution_reveal') {
                 // Wait for player list to sync first
                 setTimeout(() => {
@@ -1036,6 +1042,19 @@
             showScreen('lobby');
             document.getElementById('gameLogs').innerHTML = ''; // Clear logs
             showNarrator('RESET', 'Host đã reset game. Đã về lại phòng chờ.');
+
+            if (fromHost && sessionStorage.getItem('returnToHost') === '1') {
+                sessionStorage.removeItem('returnToHost');
+                window.location.href = '/host';
+            }
+        });
+
+        // Server asks ex-host to return to setup (after end/reset)
+        socket.on('HOST_RETURN_TO_SETUP', () => {
+            if (fromHost) {
+                sessionStorage.removeItem('returnToHost');
+                window.location.href = '/host';
+            }
         });
 
         socket.on('HOST_LEFT', (data) => {

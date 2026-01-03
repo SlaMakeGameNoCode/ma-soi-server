@@ -235,6 +235,10 @@ class GameManager {
       const existingPlayer = room.players.find(p => p.token === reconnectToken);
       if (existingPlayer) {
         existingPlayer.connected = true;
+        // Safety: if game just started and somehow flags were stale, revive everyone
+        if (room.phase === 'night' && room.day === 1) {
+          this.resetAliveState(room);
+        }
         return { playerId: existingPlayer.id, token: existingPlayer.token, reconnected: true };
       }
     }
@@ -284,14 +288,7 @@ class GameManager {
     }
 
     // Reset player state for a fresh game
-    room.players.forEach(p => {
-      if (!p.isHost) {
-        p.alive = true;
-        p.connected = true;
-        p.hasVoted = false;
-        p.attributes = {};
-      }
-    });
+    this.resetAliveState(room);
 
     // Validation
     const totalPlayers = room.players.length;
@@ -302,14 +299,15 @@ class GameManager {
 
   this.assignRoles(room, roleConfig);
 
-    room.phase = 'night';
-    room.day = 1;
-    room.discussionReady = new Set();
-    room.finalVotes = new Map();
-    room.pendingExecutionId = null;
-    room.defenseEndsAt = null;
-    room.lastNightDeaths = [];
-    room.actionLog.push(`Game bắt đầu với ${totalPlayers} người chơi (trừ Host).`);
+  room.phase = 'night';
+  room.day = 1;
+  room.discussionReady = new Set();
+  room.finalVotes = new Map();
+  room.pendingExecutionId = null;
+  room.defenseEndsAt = null;
+  room.lastNightDeaths = [];
+  room.winner = null;
+  room.actionLog = [`Game bắt đầu với ${totalPlayers} người chơi (trừ Host).`];
 
     return room;
   }
@@ -1095,6 +1093,17 @@ class GameManager {
 
   // Getters & Helpers matching old API to avoid breaking server.js too much
   getRoom(roomCode) { return this.rooms.get(roomCode); }
+  resetAliveState(room) {
+    if (!room) return;
+    room.players.forEach(p => {
+      if (!p.isHost) {
+        p.alive = true;
+        p.connected = true;
+        p.hasVoted = false;
+        p.attributes = {};
+      }
+    });
+  }
   getPlayerView(roomCode, playerId) {
     const room = this.rooms.get(roomCode);
     if (!room) return null;

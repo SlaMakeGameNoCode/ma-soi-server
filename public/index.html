@@ -920,20 +920,29 @@
         const presetName = urlParams.get('name');
         if (roomCode) document.getElementById('roomCodeInput').value = roomCode;
         if (presetName) document.getElementById('playerNameInput').value = presetName;
+    let autoJoinSent = false;
 
         // --- HANDLERS ---
 
         document.getElementById('joinBtn').addEventListener('click', () => {
             const name = document.getElementById('playerNameInput').value;
-            if (!name || !roomCode) return alert("Vui lòng nhập tên và mã phòng");
+            if (!roomCode) return alert("Vui lòng nhập mã phòng");
 
-            socket.emit('JOIN_ROOM', { roomCode, playerName: name });
+            const payload = reconnectToken ?
+                { roomCode, playerName: name || presetName || 'Host', token: reconnectToken } :
+                { roomCode, playerName: name };
+
+            socket.emit('JOIN_ROOM', payload);
+            autoJoinSent = true;
         });
 
         // Auto join if token provided (ex-host in AI mode)
-        if (roomCode && reconnectToken) {
-            socket.emit('JOIN_ROOM', { roomCode, playerName: presetName || 'Host', token: reconnectToken });
-        }
+        socket.on('connect', () => {
+            if (roomCode && reconnectToken && !autoJoinSent) {
+                socket.emit('JOIN_ROOM', { roomCode, playerName: presetName || 'Host', token: reconnectToken });
+                autoJoinSent = true;
+            }
+        });
 
         readyBtn.addEventListener('click', () => {
             if (readySent) return;

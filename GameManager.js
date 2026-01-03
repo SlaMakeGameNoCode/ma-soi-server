@@ -1066,22 +1066,40 @@ class GameManager {
     if (room.phase === 'night') {
       const status = this.getActionStatus(roomCode);
       if (status && status.total > 0 && status.submitted >= status.total) {
-        this.advancePhase(roomCode, hostId);
+        // Add 2s delay so players can see their action confirmed before phase changes
+        setTimeout(() => {
+          const currentRoom = this.rooms.get(roomCode);
+          if (currentRoom && currentRoom.phase === 'night') {
+            this.advancePhase(roomCode, hostId);
+          }
+        }, 2000);
         return;
       }
     }
     if (room.phase === 'day') {
       const alive = room.players.filter(p => !p.isHost && p.alive).length;
       const ready = room.discussionReady ? room.discussionReady.size : 0;
+      console.log(`[maybeAutoAdvance] day phase: ready=${ready}/${alive}`);
       if (alive > 0 && ready >= alive) {
-        this.advancePhase(roomCode, hostId);
+        // Add small delay for UI feedback
+        setTimeout(() => {
+          const currentRoom = this.rooms.get(roomCode);
+          if (currentRoom && currentRoom.phase === 'day') {
+            this.advancePhase(roomCode, hostId);
+          }
+        }, 1500);
         return;
       }
     }
     if (room.phase === 'vote') {
       const status = this.getActionStatus(roomCode);
       if (status && status.total > 0 && status.submitted >= status.total) {
-        this.advancePhase(roomCode, hostId);
+        setTimeout(() => {
+          const currentRoom = this.rooms.get(roomCode);
+          if (currentRoom && currentRoom.phase === 'vote') {
+            this.advancePhase(roomCode, hostId);
+          }
+        }, 1500);
         return;
       }
     }
@@ -1089,7 +1107,12 @@ class GameManager {
       const alive = room.players.filter(p => !p.isHost && p.alive).length;
       const submitted = room.finalVotes ? room.finalVotes.size : 0;
       if (alive > 0 && submitted >= alive) {
-        this.advancePhase(roomCode, hostId);
+        setTimeout(() => {
+          const currentRoom = this.rooms.get(roomCode);
+          if (currentRoom && currentRoom.phase === 'final_verdict') {
+            this.advancePhase(roomCode, hostId);
+          }
+        }, 1500);
         return;
       }
     }

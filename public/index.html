@@ -121,7 +121,7 @@
             display: none;
             align-items: center;
             justify-content: center;
-            z-index: 1850;
+            z-index: 2500;
             color: #fff;
             font-size: 42px;
             font-weight: 800;
@@ -818,6 +818,14 @@
             readyStatusText.innerText = `${readyCounts.ready}/${total} đã sẵn sàng`;
             readyBtn.disabled = readySent || isCurrentPlayerDead();
             readyBtn.innerText = readySent ? 'Đã xác nhận' : 'Đã thảo luận xong';
+            
+            // Color: green if not sent, gray if sent
+            if (readySent) {
+                readyBtn.style.background = '#6b7280';
+            } else {
+                readyBtn.style.background = '#22c55e'; // Green
+            }
+            
             readyCard.style.display = (currentPhase === 'day' && !isCurrentPlayerDead()) ? 'block' : 'none';
         }
 
@@ -967,6 +975,7 @@
             if (readySent) return;
             readySent = true;
             readyBtn.disabled = true;
+            readyBtn.style.background = '#6b7280'; // Gray after clicked
             readyBtn.innerText = 'Đã xác nhận';
             socket.emit('READY_FOR_VOTE');
         });
@@ -1037,9 +1046,18 @@
             if (currentPhase !== 'lobby' && currentPhase !== 'end') {
                 setupActionUI(currentPhase);
             }
+
+            // Update ready counter during day phase
+            if (currentPhase === 'day') {
+                const aliveNonHost = currentPlayers.filter(p => p.alive && !p.host).length;
+                readyCounts.total = aliveNonHost;
+                updateReadyUI(aliveNonHost);
+            }
         });
 
+
         socket.on('DISCUSSION_READY', (data) => {
+            console.log('[DISCUSSION_READY]', data);
             readyCounts.ready = data.ready;
             readyCounts.total = data.total;
             updateReadyUI(data.total);
@@ -1073,9 +1091,13 @@
             }
             let phaseText = `${data.phase.toUpperCase()} ${data.day}`;
             if (data.phase === 'execution_reveal') phaseText = 'KẾT QUẢ BẦU CỬ';
+            if (data.phase === 'defense') phaseText = 'BIỆN HỘ 🛡️';
+            if (data.phase === 'final_verdict') phaseText = 'PHIÊN XÉT XỬ ⚔️';
 
             document.getElementById('phaseDisplay').innerText = phaseText;
             addTypesLogs(data.logs);
+            
+            // Calculate countdown duration
             let countdownSecs = 3;
             if (data.phase === 'defense') {
                 const now = Date.now();
@@ -1085,6 +1107,8 @@
                     countdownSecs = 30;
                 }
             }
+            
+            // ALWAYS show phase overlay with countdown for ALL phase transitions
             showPhaseOverlay(phaseText, countdownSecs);
 
             // Check if current player died
@@ -1101,7 +1125,10 @@
 
                 readySent = false;
                 readyCounts.ready = 0;
-                updateReadyUI();
+                // Get total alive non-host players for ready counter
+                const aliveNonHost = currentPlayers.filter(p => p.alive && !p.host).length;
+                readyCounts.total = aliveNonHost;
+                updateReadyUI(aliveNonHost);
 
                 // AI host style narration about night deaths
                 const deaths = Array.isArray(data.nightDeaths) ? data.nightDeaths : [];

@@ -454,8 +454,10 @@ io.on('connection', (socket) => {
     // Player confirms discussion finished (day phase)
     socket.on('READY_FOR_VOTE', () => {
         const { roomCode, playerId } = socket.data;
+        console.log(`[READY_FOR_VOTE] Player ${playerId} in room ${roomCode}`);
         try {
             const status = gameManager.markDiscussionReady(roomCode, playerId);
+            console.log(`[READY_FOR_VOTE] Status:`, status);
             io.to(roomCode).emit('DISCUSSION_READY', status);
 
             // AI auto advance if everyone ready

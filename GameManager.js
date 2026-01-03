@@ -287,8 +287,8 @@ class GameManager {
       }
     }
 
-    // Reset player state for a fresh game
-    this.resetAliveState(room);
+  // Reset player state for a fresh game
+  this.resetAliveState(room);
 
     // Validation
     const totalPlayers = room.players.length;
@@ -298,6 +298,10 @@ class GameManager {
     // But duplicate checks should be handled
 
   this.assignRoles(room, roleConfig);
+
+  // Debug: log alive status right after role assignment
+  const aliveNonHost = room.players.filter(p => !p.isHost && p.alive).length;
+  console.log(`[START_GAME] room ${roomCode} alive non-host after reset: ${aliveNonHost}/${room.players.filter(p => !p.isHost).length}`);
 
   room.phase = 'night';
   room.day = 1;
@@ -1096,19 +1100,28 @@ class GameManager {
   resetAliveState(room) {
     if (!room) return;
     room.players.forEach(p => {
-      if (!p.isHost) {
-        p.alive = true;
-        p.connected = true;
-        p.hasVoted = false;
-        p.attributes = {};
-      }
+      // Even host/aiHost can safely be marked alive here; isHost is excluded in win/role counts
+      p.alive = true;
+      p.connected = true;
+      p.hasVoted = false;
+      p.attributes = {};
     });
   }
   getPlayerView(roomCode, playerId) {
     const room = this.rooms.get(roomCode);
     if (!room) return null;
 
-    const requestingPlayer = room.players.find(p => p.id === playerId);
+    // Safety net: if at Night 1 all non-host players are somehow marked dead, revive them
+    if (room.phase === 'night' && room.day === 1) {
+      const nonHost = room.players.filter(p => !p.isHost);
+      const alive = nonHost.filter(p => p.alive).length;
+      if (nonHost.length > 0 && alive === 0) {
+        console.warn(`[SAFETY] Detected all non-host dead at Night 1 in room ${roomCode}; resetting alive state.`);
+        this.resetAliveState(room);
+      }
+    }
+
+  const requestingPlayer = room.players.find(p => p.id === playerId);
     const isHost = requestingPlayer?.isHost || false;
     const isDead = requestingPlayer ? !requestingPlayer.alive : false;
 

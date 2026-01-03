@@ -204,6 +204,15 @@ io.on('connection', (socket) => {
             socket.data.playerId = playerId;
             const room = gameManager.getRoom(roomCode);
 
+            // Debug: log alive state snapshot on each join
+            try {
+                const nonHost = room.players.filter(p => !p.isHost);
+                const aliveNonHost = nonHost.filter(p => p.alive).length;
+                console.log(`[DEBUG_JOIN] room ${roomCode} joiner=${safeName} reconnected=${reconnected} phase=${room.phase} day=${room.day} aliveNonHost=${aliveNonHost}/${nonHost.length}`);
+            } catch (e) {
+                // ignore
+            }
+
             if (reconnected) {
                 const playerView = gameManager.getPlayerView(roomCode, playerId);
                 const player = playerView.players.find(p => p.id === playerId);

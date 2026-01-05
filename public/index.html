@@ -1120,7 +1120,11 @@
 
             // Narrator Popups
             if (data.phase === 'day') {
-                showNarrator('BAN NGÀY ☀️', `Trời sáng rồi!`);
+                // Delay narrator until phase overlay finishes (countdownSecs * 1000ms)
+                setTimeout(() => {
+                    showNarrator('BAN NGÀY ☀️', `Trời sáng rồi!`);
+                }, countdownSecs * 1000);
+                
                 suspectLocked = true;
 
                 readySent = false;
@@ -1139,7 +1143,10 @@
                     const names = deaths.map(d => d.name).join(', ');
                     msg = `Đêm qua là một đêm đẫm máu - có ${deaths.length} người chết. Đó là ${names}`;
                 }
-                showNarrator('TÓM TẮT ĐÊM QUA', msg);
+                // Show summary narrator after first narrator + small delay
+                setTimeout(() => {
+                    showNarrator('TÓM TẮT ĐÊM QUA', msg);
+                }, (countdownSecs * 1000) + 500);
 
                 // Check if player died during night
                 setTimeout(() => {

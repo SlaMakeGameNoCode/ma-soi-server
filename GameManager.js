@@ -1060,9 +1060,17 @@ class GameManager {
   // AI helper: if all actions/votes submitted, auto advance
   maybeAutoAdvance(roomCode, onPhaseChange) {
     const room = this.rooms.get(roomCode);
-    if (!room || !room.aiHostEnabled) return;
+    if (!room || !room.aiHostEnabled) {
+      console.log(`[maybeAutoAdvance] Skipping: room=${!!room}, aiHostEnabled=${room?.aiHostEnabled}`);
+      return;
+    }
     const hostId = room.aiHostId || room.players.find(p => p.isHost)?.id;
-    if (!hostId) return;
+    if (!hostId) {
+      console.log(`[maybeAutoAdvance] No host ID found`);
+      return;
+    }
+
+    console.log(`[maybeAutoAdvance] Called for room ${roomCode}, phase=${room.phase}`);
 
     if (room.phase === 'night') {
       const status = this.getActionStatus(roomCode);

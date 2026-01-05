@@ -764,6 +764,8 @@ class GameManager {
       if (c > max) { max = c; targetId = id; }
     });
 
+    console.log(`[resolveVote] Vote result: targetId=${targetId}, max votes=${max}`);
+
     room.executedPlayerId = null;
     room.pendingExecutionId = null;
     room.defenseEndsAt = null;
@@ -773,6 +775,7 @@ class GameManager {
 
     if (targetId && protectedId === targetId) {
       const victim = room.players.find(p => p.id === targetId);
+      console.log(`[resolveVote] Lawyer protected ${victim?.name}`);
       room.actionLog.push(`⚖️ Luật sư can thiệp! ${victim?.name || 'Người chơi'} được miễn án tử.`);
       targetId = null; // Cancel execution path
     }
@@ -782,11 +785,13 @@ class GameManager {
 
     if (targetId) {
       const victim = room.players.find(p => p.id === targetId);
+      console.log(`[resolveVote] Starting defense for ${victim?.name}, setting phase=defense`);
       room.pendingExecutionId = targetId;
       room.phase = 'defense';
       room.defenseEndsAt = Date.now() + 30000;
       room.actionLog.push(`🛡️ ${victim?.name || 'Người chơi'} có 30s để biện hộ!`);
     } else {
+      console.log(`[resolveVote] No target, skipping to execution_reveal`);
       room.actionLog.push('⚖️ Không ai bị treo cổ.');
       room.day++;
       room.phase = 'execution_reveal';
@@ -1091,12 +1096,16 @@ class GameManager {
       const ready = room.discussionReady ? room.discussionReady.size : 0;
       console.log(`[maybeAutoAdvance] day phase: ready=${ready}/${alive}`);
       if (alive > 0 && ready >= alive) {
+        console.log(`[maybeAutoAdvance] Day phase ready! Scheduling advance in 1.5s`);
         // Add small delay for UI feedback
         setTimeout(() => {
           const currentRoom = this.rooms.get(roomCode);
           if (currentRoom && currentRoom.phase === 'day') {
+            console.log(`[maybeAutoAdvance] Advancing from day phase NOW`);
             this.advancePhase(roomCode, hostId);
             if (onPhaseChange) onPhaseChange(roomCode);
+          } else {
+            console.log(`[maybeAutoAdvance] SKIP advance: currentPhase=${currentRoom?.phase}`);
           }
         }, 1500);
         return;

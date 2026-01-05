@@ -192,7 +192,7 @@ class GameManager {
     };
   }
 
-  schedulePhaseTimer(room) {
+  schedulePhaseTimer(room, onPhaseChange) {
     if (room.phaseTimer) {
       clearTimeout(room.phaseTimer);
       room.phaseTimer = null;
@@ -205,6 +205,11 @@ class GameManager {
     const advance = () => {
       try {
         this.advancePhase(room.roomCode, hostId);
+        // Notify about phase change after advance
+        if (onPhaseChange) {
+          console.log(`[schedulePhaseTimer] Phase changed, calling callback`);
+          onPhaseChange(room.roomCode);
+        }
       } catch (e) {
         console.error('[AI_HOST] advance error', e.message);
       }
@@ -1113,12 +1118,22 @@ class GameManager {
     }
     if (room.phase === 'vote') {
       const status = this.getActionStatus(roomCode);
+      console.log(`[maybeAutoAdvance] vote phase: submitted=${status?.submitted}/${status?.total}`);
       if (status && status.total > 0 && status.submitted >= status.total) {
+        console.log(`[maybeAutoAdvance] Vote phase complete! Scheduling advance in 1.5s`);
         setTimeout(() => {
           const currentRoom = this.rooms.get(roomCode);
           if (currentRoom && currentRoom.phase === 'vote') {
+            console.log(`[maybeAutoAdvance] Advancing from vote phase NOW`);
             this.advancePhase(roomCode, hostId);
-            if (onPhaseChange) onPhaseChange(roomCode);
+            if (onPhaseChange) {
+              console.log(`[maybeAutoAdvance] Calling onPhaseChange callback`);
+              onPhaseChange(roomCode);
+            } else {
+              console.log(`[maybeAutoAdvance] WARNING: No onPhaseChange callback!`);
+            }
+          } else {
+            console.log(`[maybeAutoAdvance] SKIP advance: currentPhase=${currentRoom?.phase}`);
           }
         }, 1500);
         return;

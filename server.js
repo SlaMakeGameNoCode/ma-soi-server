@@ -46,6 +46,23 @@ const getMemoryLimitMB = () => {
 
 const CONTAINER_MEMORY_LIMIT_MB = getMemoryLimitMB();
 
+// Helper: Emit PHASE_CHANGED event
+const emitPhaseChange = (roomCode) => {
+    const room = gameManager.getRoom(roomCode);
+    if (room) {
+        io.to(roomCode).emit('PHASE_CHANGED', {
+            phase: room.phase,
+            day: room.day,
+            logs: room.actionLog,
+            winner: room.winner,
+            executedPlayerId: room.executedPlayerId,
+            pendingExecutionId: room.pendingExecutionId,
+            defenseEndsAt: room.defenseEndsAt,
+            nightDeaths: room.lastNightDeaths || []
+        });
+    }
+};
+
 // Normalize a display name with fallback and length cap
 const sanitizeName = (name, fallback = 'Người chơi') => {
     const trimmed = String(name || '').trim();
@@ -273,7 +290,7 @@ io.on('connection', (socket) => {
         try {
             const room = gameManager.enableAIHost(roomCode, playerId, enabled);
             // when enabling, try auto-start check and schedule timers for current phase
-            gameManager.schedulePhaseTimer(room);
+            gameManager.schedulePhaseTimer(room, emitPhaseChange);
             io.to(roomCode).emit('AI_HOST_SYNC', { enabled: room.aiHostEnabled });
             console.log(`[AI_HOST] room ${roomCode} enabled=${room.aiHostEnabled}`);
         } catch (error) {
@@ -435,7 +452,7 @@ io.on('connection', (socket) => {
                 });
             }
 
-            gameManager.schedulePhaseTimer(updatedRoom);
+            gameManager.schedulePhaseTimer(updatedRoom, emitPhaseChange);
 
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
@@ -501,7 +518,7 @@ io.on('connection', (socket) => {
                     nightDeaths: room.lastNightDeaths || []
                 });
             }
-            gameManager.schedulePhaseTimer(room);
+            gameManager.schedulePhaseTimer(room, emitPhaseChange);
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
         }
@@ -592,7 +609,7 @@ io.on('connection', (socket) => {
                 });
             }
 
-            gameManager.schedulePhaseTimer(roomAfter);
+            gameManager.schedulePhaseTimer(roomAfter, emitPhaseChange);
 
         } catch (error) {
             socket.emit('ERROR', { message: error.message });
@@ -696,7 +713,7 @@ io.on('connection', (socket) => {
 
         // AI re-schedule timer after manual advance
         const room = gameManager.getRoom(roomCode);
-        gameManager.schedulePhaseTimer(room);
+        gameManager.schedulePhaseTimer(room, emitPhaseChange);
     });
 
     socket.on('END_GAME', () => {

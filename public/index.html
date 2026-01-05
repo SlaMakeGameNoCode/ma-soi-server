@@ -1160,7 +1160,7 @@
 
                 // Witch fallback: If no WITCH_PREVIEW after 5s, show kill dialog directly
                 const me = currentPlayers.find(p => p.id === myPlayerId);
-                if (me && me.role === 'witch' && me.alive) {
+                if (me && myRole === 'witch' && me.alive) {
                     console.log('[WITCH] Setting 5s timeout for fallback dialog');
                     window.witchPreviewTimeout = setTimeout(() => {
                         console.log('[WITCH] No preview received, showing kill dialog directly');
@@ -1418,8 +1418,10 @@
             const me = currentPlayers.find(p => p.id === myPlayerId);
             console.log('[WITCH_PREVIEW] Found me:', me);
             console.log('[WITCH_PREVIEW] My role from player data:', me?.role);
+            console.log('[WITCH_PREVIEW] My role from state:', myRole);
 
-            if (!me || me.role !== 'witch') {
+            // Use myRole state instead of me.role (which is not sent to clients for security)
+            if (!me || myRole !== 'witch') {
                 console.log('[WITCH_PREVIEW] Not witch or player not found, skipping');
                 return;
             }

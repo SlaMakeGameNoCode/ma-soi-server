@@ -407,7 +407,19 @@ io.on('connection', (socket) => {
 
             // AI auto advance if ready
             const beforePhase = room.phase;
-            gameManager.maybeAutoAdvance(roomCode);
+            gameManager.maybeAutoAdvance(roomCode, (updatedRoomCode) => {
+                const updatedRoom = gameManager.getRoom(updatedRoomCode);
+                io.to(updatedRoomCode).emit('PHASE_CHANGED', {
+                    phase: updatedRoom.phase,
+                    day: updatedRoom.day,
+                    logs: updatedRoom.actionLog,
+                    winner: updatedRoom.winner,
+                    executedPlayerId: updatedRoom.executedPlayerId,
+                    pendingExecutionId: updatedRoom.pendingExecutionId,
+                    defenseEndsAt: updatedRoom.defenseEndsAt,
+                    nightDeaths: updatedRoom.lastNightDeaths || []
+                });
+            });
             const updatedRoom = gameManager.getRoom(roomCode);
 
             if (beforePhase !== updatedRoom.phase) {
@@ -463,7 +475,19 @@ io.on('connection', (socket) => {
             // AI auto advance if everyone ready
             const before = gameManager.getRoom(roomCode);
             const beforePhase = before ? before.phase : null;
-            gameManager.maybeAutoAdvance(roomCode);
+            gameManager.maybeAutoAdvance(roomCode, (updatedRoomCode) => {
+                const room = gameManager.getRoom(updatedRoomCode);
+                io.to(updatedRoomCode).emit('PHASE_CHANGED', {
+                    phase: room.phase,
+                    day: room.day,
+                    logs: room.actionLog,
+                    winner: room.winner,
+                    executedPlayerId: room.executedPlayerId,
+                    pendingExecutionId: room.pendingExecutionId,
+                    defenseEndsAt: room.defenseEndsAt,
+                    nightDeaths: room.lastNightDeaths || []
+                });
+            });
             const room = gameManager.getRoom(roomCode);
             if (room && beforePhase && beforePhase !== room.phase) {
                 io.to(roomCode).emit('PHASE_CHANGED', {
@@ -540,7 +564,19 @@ io.on('connection', (socket) => {
             // AI auto advance if all votes in
             const before = gameManager.getRoom(roomCode);
             const beforePhase = before ? before.phase : null;
-            gameManager.maybeAutoAdvance(roomCode);
+            gameManager.maybeAutoAdvance(roomCode, (updatedRoomCode) => {
+                const roomAfter = gameManager.getRoom(updatedRoomCode);
+                io.to(updatedRoomCode).emit('PHASE_CHANGED', {
+                    phase: roomAfter.phase,
+                    day: roomAfter.day,
+                    logs: roomAfter.actionLog,
+                    winner: roomAfter.winner,
+                    executedPlayerId: roomAfter.executedPlayerId,
+                    pendingExecutionId: roomAfter.pendingExecutionId,
+                    defenseEndsAt: roomAfter.defenseEndsAt,
+                    nightDeaths: roomAfter.lastNightDeaths || []
+                });
+            });
             const roomAfter = gameManager.getRoom(roomCode);
 
             if (roomAfter && beforePhase && beforePhase !== roomAfter.phase) {

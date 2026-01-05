@@ -1058,7 +1058,7 @@ class GameManager {
   }
 
   // AI helper: if all actions/votes submitted, auto advance
-  maybeAutoAdvance(roomCode) {
+  maybeAutoAdvance(roomCode, onPhaseChange) {
     const room = this.rooms.get(roomCode);
     if (!room || !room.aiHostEnabled) return;
     const hostId = room.aiHostId || room.players.find(p => p.isHost)?.id;
@@ -1072,6 +1072,7 @@ class GameManager {
           const currentRoom = this.rooms.get(roomCode);
           if (currentRoom && currentRoom.phase === 'night') {
             this.advancePhase(roomCode, hostId);
+            if (onPhaseChange) onPhaseChange(roomCode);
           }
         }, 2000);
         return;
@@ -1087,6 +1088,7 @@ class GameManager {
           const currentRoom = this.rooms.get(roomCode);
           if (currentRoom && currentRoom.phase === 'day') {
             this.advancePhase(roomCode, hostId);
+            if (onPhaseChange) onPhaseChange(roomCode);
           }
         }, 1500);
         return;
@@ -1099,6 +1101,7 @@ class GameManager {
           const currentRoom = this.rooms.get(roomCode);
           if (currentRoom && currentRoom.phase === 'vote') {
             this.advancePhase(roomCode, hostId);
+            if (onPhaseChange) onPhaseChange(roomCode);
           }
         }, 1500);
         return;
@@ -1112,6 +1115,7 @@ class GameManager {
           const currentRoom = this.rooms.get(roomCode);
           if (currentRoom && currentRoom.phase === 'final_verdict') {
             this.advancePhase(roomCode, hostId);
+            if (onPhaseChange) onPhaseChange(roomCode);
           }
         }, 1500);
         return;

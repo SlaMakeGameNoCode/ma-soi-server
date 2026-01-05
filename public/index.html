@@ -1158,6 +1158,16 @@
                 renderSuspicionUI();
                 readyCard.style.display = 'none';
 
+                // Witch fallback: If no WITCH_PREVIEW after 5s, show kill dialog directly
+                const me = currentPlayers.find(p => p.id === myPlayerId);
+                if (me && me.role === 'witch' && me.alive) {
+                    console.log('[WITCH] Setting 5s timeout for fallback dialog');
+                    window.witchPreviewTimeout = setTimeout(() => {
+                        console.log('[WITCH] No preview received, showing kill dialog directly');
+                        showWitchKillDialog();
+                    }, 5000);
+                }
+
                 // Check if player died during vote/execution
                 setTimeout(() => {
                     const meNow = currentPlayers.find(p => p.id === myPlayerId);
@@ -1401,12 +1411,22 @@
         // NEW: Witch Preview System
         socket.on('WITCH_PREVIEW', (data) => {
             console.log('[WITCH_PREVIEW] Event received:', data);
+            console.log('[WITCH_PREVIEW] myPlayerId:', myPlayerId);
+            console.log('[WITCH_PREVIEW] myRole:', myRole);
+            console.log('[WITCH_PREVIEW] currentPlayers:', currentPlayers);
+            
             const me = currentPlayers.find(p => p.id === myPlayerId);
-            console.log('[WITCH_PREVIEW] My role:', me?.role);
+            console.log('[WITCH_PREVIEW] Found me:', me);
+            console.log('[WITCH_PREVIEW] My role from player data:', me?.role);
 
             if (!me || me.role !== 'witch') {
                 console.log('[WITCH_PREVIEW] Not witch or player not found, skipping');
                 return;
+            }
+
+            // Clear any pending timeout
+            if (window.witchPreviewTimeout) {
+                clearTimeout(window.witchPreviewTimeout);
             }
 
             console.log('[WITCH_PREVIEW] Showing heal dialog');
@@ -1537,11 +1557,14 @@
         }
 
         function witchSkipKill() {
+            // Submit SKIP action so server knows Witch is done
+            socket.emit('ACTION', { type: 'SKIP', targetId: null });
+            console.log('[WITCH] Submitted SKIP');
+            
             const dialog = document.getElementById('witchKillDialog');
             if (dialog) dialog.remove();
 
-            console.log('[WITCH] Skipped KILL');
-            alert('Đã bỏ qua giết người.');
+            showToast('Đã bỏ qua giết người', 'info');
         }
 
         socket.on('ERROR', (data) => alert(data.message));

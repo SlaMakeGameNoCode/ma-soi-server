@@ -1042,12 +1042,13 @@ class GameManager {
       total = room.players.filter(p => p.alive).length;
       submitted = room.votes.size;
     } else if (room.phase === 'night') {
-      // Update Night Roles
+      // All night roles must submit action (including Witch and Hunter)
       const nightRoles = [ROLE_TYPES.ALPHA_WOLF, ROLE_TYPES.WOLF, ROLE_TYPES.DETECTIVE, ROLE_TYPES.SEER, ROLE_TYPES.WITCH, ROLE_TYPES.BODYGUARD, ROLE_TYPES.HUNTER];
-      // Hunter now has PIN action, so they are ACTIVE at night
       const activePlayers = room.players.filter(p => p.alive && nightRoles.includes(p.role));
       total = activePlayers.length;
       submitted = activePlayers.filter(p => room.actions.has(p.id)).length;
+      
+      console.log(`[getActionStatus] Night: submitted=${submitted}/${total}, active roles:`, activePlayers.map(p => `${p.name}(${p.role})`));
     } else if (room.phase === 'final_verdict') {
       total = room.players.filter(p => p.alive).length;
       submitted = room.finalVotes ? room.finalVotes.size : 0;

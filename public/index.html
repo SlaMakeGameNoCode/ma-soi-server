@@ -1478,15 +1478,21 @@
             document.body.appendChild(dialog);
         }
 
+        // Witch state: store decisions locally, emit together when done
+        let witchSaveTarget = null;
+
         function witchHealDecision(shouldHeal, targetId) {
             // Remove heal dialog
             const dialog = document.getElementById('witchHealDialog');
             if (dialog) dialog.remove();
 
-            // If heal, submit SAVE action
+            // Store SAVE decision (don't emit yet)
             if (shouldHeal) {
-                socket.emit('ACTION', { type: 'SAVE', targetId: targetId });
-                console.log('[WITCH] Submitted SAVE for', targetId);
+                witchSaveTarget = targetId;
+                console.log('[WITCH] Will SAVE:', targetId);
+            } else {
+                witchSaveTarget = null;
+                console.log('[WITCH] Will NOT save');
             }
 
             // Show kill dialog
@@ -1549,24 +1555,43 @@
         }
 
         function witchKillTarget(targetId) {
+            // Submit SAVE first (if decided to save)
+            if (witchSaveTarget) {
+                socket.emit('ACTION', { type: 'SAVE', targetId: witchSaveTarget });
+                console.log('[WITCH] Submitted SAVE for', witchSaveTarget);
+            }
+            
+            // Then submit KILL
             socket.emit('ACTION', { type: 'KILL', targetId: targetId });
             console.log('[WITCH] Submitted KILL for', targetId);
 
             const dialog = document.getElementById('witchKillDialog');
             if (dialog) dialog.remove();
 
-            alert('Đã gửi hành động Phù Thủy!');
+            showToast('Đã gửi hành động Phù Thủy!', 'success');
+            
+            // Reset state
+            witchSaveTarget = null;
         }
 
         function witchSkipKill() {
-            // Submit SKIP action so server knows Witch is done
+            // Submit SAVE first (if decided to save)
+            if (witchSaveTarget) {
+                socket.emit('ACTION', { type: 'SAVE', targetId: witchSaveTarget });
+                console.log('[WITCH] Submitted SAVE for', witchSaveTarget);
+            }
+            
+            // Then submit SKIP to signal done
             socket.emit('ACTION', { type: 'SKIP', targetId: null });
             console.log('[WITCH] Submitted SKIP');
             
             const dialog = document.getElementById('witchKillDialog');
             if (dialog) dialog.remove();
 
-            showToast('Đã bỏ qua giết người', 'info');
+            showToast('Đã hoàn tất hành động Phù Thủy', 'info');
+            
+            // Reset state
+            witchSaveTarget = null;
         }
 
         socket.on('ERROR', (data) => alert(data.message));

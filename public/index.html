@@ -1130,13 +1130,9 @@
 
             // Calculate countdown duration
             let countdownSecs = 3;
-            if (data.phase === 'defense') {
-                const now = Date.now();
-                if (data.defenseEndsAt) {
-                    countdownSecs = Math.max(3, Math.ceil((data.defenseEndsAt - now) / 1000));
-                } else {
-                    countdownSecs = 30;
-                }
+            // FIXED: Do NOT use full defense duration for overlay, only 3s to announce
+            if (data.phase === 'defense' || data.phase === 'final_verdict') {
+                countdownSecs = 3;
             }
 
             // ALWAYS show phase overlay with countdown for ALL phase transitions
@@ -1278,6 +1274,7 @@
                 }
 
                 showNarrator(winnerTitle, winnerMsg);
+                setupActionUI('end'); // Show Back Button
 
                 // Mark to return host UI after end if this client is ex-host
                 if (fromHost) {
@@ -1339,6 +1336,9 @@
 
             if (fromHost && sessionStorage.getItem('returnToHost') === '1') {
                 sessionStorage.removeItem('returnToHost');
+                window.location.href = '/host';
+            } else if (fromHost) {
+                // Even if not marked (e.g. manual reset), if I am host-origin, go back
                 window.location.href = '/host';
             }
         });
@@ -2003,6 +2003,10 @@
                 showActions = true;
                 title.innerText = 'Quyết định cuối: Giết hay Không giết?';
                 actionType = 'FINAL_VOTE';
+            } else if (phase === 'end') {
+                showActions = true;
+                title.innerText = 'Trò chơi kết thúc';
+                actionType = 'END_GAME';
             }
 
             if (!showActions) {
@@ -2035,6 +2039,30 @@
                     };
                     container.appendChild(div);
                 });
+            } else if (actionType === 'END_GAME') {
+                // Return to Lobby Button
+                const div = document.createElement('div');
+                div.className = 'action-btn';
+                div.style.background = '#3b82f6';
+                div.innerText = '🏠 Về Sảnh (Lobby)';
+                div.onclick = () => {
+                    window.location.href = '/';
+                };
+                container.appendChild(div);
+
+                if (fromHost) {
+                    const hostDiv = document.createElement('div');
+                    hostDiv.className = 'action-btn';
+                    hostDiv.style.background = '#8b5cf6';
+                    hostDiv.innerText = '⚙️ Về Host Setup';
+                    hostDiv.onclick = () => {
+                        window.location.href = '/host';
+                    };
+                    container.appendChild(hostDiv);
+                }
+
+                // Hide Confirm Button (using quick links above)
+                btn.style.display = 'none';
             } else {
                 // Render targets (Alive players excluding self and Host)
                 // IMPORTANT: Filter out dead players from vote list

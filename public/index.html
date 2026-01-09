@@ -55,8 +55,13 @@
             border-radius: 50%;
         }
 
-        .dot-green { background: #10b981; }
-        .dot-yellow { background: #fbbf24; }
+        .dot-green {
+            background: #10b981;
+        }
+
+        .dot-yellow {
+            background: #fbbf24;
+        }
 
         .role-badge {
             display: inline-flex;
@@ -110,14 +115,14 @@
             border-left: 4px solid #3b82f6;
             padding: 12px 14px;
             border-radius: 10px;
-            box-shadow: 0 10px 24px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
             animation: fadeIn 0.25s ease-out;
         }
 
         .phase-overlay {
             position: fixed;
             inset: 0;
-            background: radial-gradient(circle at center, rgba(255,255,255,0.08), rgba(15,23,42,0.9));
+            background: radial-gradient(circle at center, rgba(255, 255, 255, 0.08), rgba(15, 23, 42, 0.9));
             display: none;
             align-items: center;
             justify-content: center;
@@ -131,9 +136,20 @@
         }
 
         @keyframes flash {
-            0% { opacity: 0; transform: scale(0.9); }
-            40% { opacity: 1; transform: scale(1.03); }
-            100% { opacity: 0; transform: scale(1); }
+            0% {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+
+            40% {
+                opacity: 1;
+                transform: scale(1.03);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(1);
+            }
         }
 
         .container {
@@ -461,9 +477,21 @@
             line-height: 1.4;
         }
 
-        .chat-entry { margin-bottom: 6px; }
-        .chat-entry .name { color: #38bdf8; font-weight: 600; margin-right: 6px; }
-        .chat-entry .time { color: #94a3b8; font-size: 11px; margin-left: 6px; }
+        .chat-entry {
+            margin-bottom: 6px;
+        }
+
+        .chat-entry .name {
+            color: #38bdf8;
+            font-weight: 600;
+            margin-right: 6px;
+        }
+
+        .chat-entry .time {
+            color: #94a3b8;
+            font-size: 11px;
+            margin-left: 6px;
+        }
 
         .chat-input-row {
             display: flex;
@@ -572,7 +600,8 @@
             <!-- Action Area -->
             <div class="card" id="actionArea">
                 <h3 id="actionTitle" style="margin-bottom: 10px;">Hành Động</h3>
-                <div id="wolfKillNotice" class="hidden" style="display:none; margin-bottom:10px; padding:10px; border-radius:8px; background:#0f172a; border:1px solid #f97316; color:#fbbf24; font-weight:600;">
+                <div id="wolfKillNotice" class="hidden"
+                    style="display:none; margin-bottom:10px; padding:10px; border-radius:8px; background:#0f172a; border:1px solid #f97316; color:#fbbf24; font-weight:600;">
                     🐺 Sói đang nhắm: <span id="wolfKillTarget">--</span>
                 </div>
                 <div id="playerSelect" class="action-list"></div>
@@ -592,7 +621,8 @@
 
             <div class="card" id="suspectArea" style="display:none;">
                 <h3 style="margin-bottom: 6px;">Bảng Nghi Ngờ 🕵️</h3>
-                <p style="color:#94a3b8; font-size:13px; margin-bottom:10px;">Chọn người bạn nghi là Sói (không ảnh hưởng gameplay, chỉ ghi log).</p>
+                <p style="color:#94a3b8; font-size:13px; margin-bottom:10px;">Chọn người bạn nghi là Sói (không ảnh
+                    hưởng gameplay, chỉ ghi log).</p>
                 <div id="suspectSelect" class="action-list"></div>
                 <button class="btn btn-secondary" id="confirmSuspectBtn" style="margin-top: 12px;">Gửi nghi ngờ</button>
             </div>
@@ -643,11 +673,11 @@
         let selectedTarget = null;
         let currentPlayers = [];
         let currentPhase = 'lobby';
-    let suspectTarget = null;
-    let suspectLocked = false;
-    let chatEnabled = false;
-    let chatLog = [];
-    let pendingExecutionId = null;
+        let suspectTarget = null;
+        let suspectLocked = false;
+        let chatEnabled = false;
+        let chatLog = [];
+        let pendingExecutionId = null;
         let readySent = false;
         let readyCounts = { ready: 0, total: 0 };
         let phaseOverlayTimer = null;
@@ -818,14 +848,14 @@
             readyStatusText.innerText = `${readyCounts.ready}/${total} đã sẵn sàng`;
             readyBtn.disabled = readySent || isCurrentPlayerDead();
             readyBtn.innerText = readySent ? 'Đã xác nhận' : 'Đã thảo luận xong';
-            
+
             // Color: green if not sent, gray if sent
             if (readySent) {
                 readyBtn.style.background = '#6b7280';
             } else {
                 readyBtn.style.background = '#22c55e'; // Green
             }
-            
+
             readyCard.style.display = (currentPhase === 'day' && !isCurrentPlayerDead()) ? 'block' : 'none';
         }
 
@@ -947,7 +977,7 @@
 
         if (roomCode) document.getElementById('roomCodeInput').value = roomCode;
         if (presetName) document.getElementById('playerNameInput').value = presetName;
-    let autoJoinSent = false;
+        let autoJoinSent = false;
 
         // --- HANDLERS ---
 
@@ -1028,7 +1058,7 @@
             console.log('[CLIENT] PLAYER_JOINED: received', data.players.length, 'players. myPlayerId=', myPlayerId);
             const me = currentPlayers.find(p => p.id === myPlayerId);
             console.log('[CLIENT] Found me:', me ? `${me.name} alive=${me.alive}` : 'NOT FOUND');
-            
+
             renderLobby(data.players);
             updateStatusBar();
             renderSuspicionUI();
@@ -1097,7 +1127,7 @@
 
             document.getElementById('phaseDisplay').innerText = phaseText;
             addTypesLogs(data.logs);
-            
+
             // Calculate countdown duration
             let countdownSecs = 3;
             if (data.phase === 'defense') {
@@ -1108,9 +1138,57 @@
                     countdownSecs = 30;
                 }
             }
-            
+
             // ALWAYS show phase overlay with countdown for ALL phase transitions
             showPhaseOverlay(phaseText, countdownSecs);
+
+            // Start countdown timer for phases that don't get TIMER_UPDATE from server
+            // Night phase: no timer (phases happen when actions complete)
+            // Day phase: handled by server TIMER_UPDATE
+            // Vote, Defense, Final Verdict: need client-side timer
+            const timerDisplay = document.getElementById('timerDisplay');
+            if (window.clientPhaseTimer) clearInterval(window.clientPhaseTimer);
+
+            let phaseDuration = 0;
+            if (data.phase === 'vote') {
+                phaseDuration = 30; // 30 seconds for voting
+            } else if (data.phase === 'defense') {
+                const now = Date.now();
+                if (data.defenseEndsAt) {
+                    phaseDuration = Math.max(0, Math.ceil((data.defenseEndsAt - now) / 1000));
+                } else {
+                    phaseDuration = 30; // Default 30s
+                }
+            } else if (data.phase === 'final_verdict') {
+                phaseDuration = 20; // 20 seconds for final verdict
+            } else if (data.phase === 'night') {
+                // No timer for night phase
+                timerDisplay.style.display = 'none';
+                phaseDuration = 0;
+            }
+
+            if (phaseDuration > 0) {
+                let timeLeft = phaseDuration;
+                timerDisplay.style.display = 'block';
+                timerDisplay.innerText = `⏱️ ${timeLeft}s`;
+                timerDisplay.classList.remove('warning');
+
+                window.clientPhaseTimer = setInterval(() => {
+                    timeLeft--;
+                    if (timeLeft >= 0) {
+                        timerDisplay.innerText = `⏱️ ${timeLeft}s`;
+                        if (timeLeft <= 10) {
+                            timerDisplay.classList.add('warning');
+                        } else {
+                            timerDisplay.classList.remove('warning');
+                        }
+                    }
+                    if (timeLeft < 0) {
+                        clearInterval(window.clientPhaseTimer);
+                        timerDisplay.style.display = 'none';
+                    }
+                }, 1000);
+            }
 
             // Check if current player died
             const me = currentPlayers.find(p => p.id === myPlayerId);
@@ -1125,7 +1203,7 @@
                 setTimeout(() => {
                     showNarrator('BAN NGÀY ☀️', `Trời sáng rồi!`);
                 }, countdownSecs * 1000);
-                
+
                 suspectLocked = true;
 
                 readySent = false;
@@ -1243,6 +1321,7 @@
                 const victim = currentPlayers.find(p => p.id === pendingExecutionId);
                 const victimName = victim ? victim.name : 'người bị treo cổ';
                 showNarrator('BIỆN HỘ 🛡️', `${victimName} có 30s để biện hộ trước khi quyết định cuối cùng.`);
+                setupActionUI('defense'); // Show waiting UI
                 readyCard.style.display = 'none';
             } else if (data.phase === 'final_verdict') {
                 const victim = currentPlayers.find(p => p.id === pendingExecutionId);
@@ -1422,7 +1501,7 @@
             console.log('[WITCH_PREVIEW] myPlayerId:', myPlayerId);
             console.log('[WITCH_PREVIEW] myRole:', myRole);
             console.log('[WITCH_PREVIEW] currentPlayers:', currentPlayers);
-            
+
             const me = currentPlayers.find(p => p.id === myPlayerId);
             console.log('[WITCH_PREVIEW] Found me:', me);
             console.log('[WITCH_PREVIEW] My role from player data:', me?.role);
@@ -1568,7 +1647,7 @@
                 socket.emit('ACTION', { type: 'SAVE', targetId: witchSaveTarget });
                 console.log('[WITCH] Submitted SAVE for', witchSaveTarget);
             }
-            
+
             // Then submit KILL
             socket.emit('ACTION', { type: 'KILL', targetId: targetId });
             console.log('[WITCH] Submitted KILL for', targetId);
@@ -1577,7 +1656,7 @@
             if (dialog) dialog.remove();
 
             showToast('Đã gửi hành động Phù Thủy!', 'success');
-            
+
             // Reset state
             witchSaveTarget = null;
         }
@@ -1588,16 +1667,16 @@
                 socket.emit('ACTION', { type: 'SAVE', targetId: witchSaveTarget });
                 console.log('[WITCH] Submitted SAVE for', witchSaveTarget);
             }
-            
+
             // Then submit SKIP to signal done
             socket.emit('ACTION', { type: 'SKIP', targetId: null });
             console.log('[WITCH] Submitted SKIP');
-            
+
             const dialog = document.getElementById('witchKillDialog');
             if (dialog) dialog.remove();
 
             showToast('Đã hoàn tất hành động Phù Thủy', 'info');
-            
+
             // Reset state
             witchSaveTarget = null;
         }
@@ -1911,6 +1990,15 @@
                 actionType = 'VOTE';
 
                 // Lawyer check logic...
+            } else if (phase === 'defense') {
+                // Defense phase - show waiting message
+                actionArea.classList.remove('hidden');
+                title.innerHTML = '⏳ ĐANG BIỆN HỘ';
+                const victim = currentPlayers.find(p => p.id === pendingExecutionId);
+                const victimName = victim ? victim.name : 'người bị treo cổ';
+                container.innerHTML = `<p style="color: #fbbf24; text-align: center; padding: 20px;">${victimName} đang biện hộ. Vui lòng chờ...</p>`;
+                btn.style.display = 'none';
+                return;
             } else if (phase === 'final_verdict') {
                 showActions = true;
                 title.innerText = 'Quyết định cuối: Giết hay Không giết?';

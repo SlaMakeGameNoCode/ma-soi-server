@@ -993,11 +993,31 @@
             autoJoinSent = true;
         });
 
-        // Auto join if token provided (ex-host in AI mode)
+        // Auto join logic - Prioritize URL Token -> LocalStorage -> Manual Input
         socket.on('connect', () => {
-            if (roomCode && reconnectToken && !autoJoinSent) {
+            if (autoJoinSent) return;
+
+            // 1. Check URL Token (Host Redirect)
+            if (roomCode && reconnectToken) {
+                console.log('[AUTO-JOIN] Using URL/Session Token');
                 socket.emit('JOIN_ROOM', { roomCode, playerName: presetName || 'Host', token: reconnectToken });
                 autoJoinSent = true;
+                return;
+            }
+
+            // 2. Check LocalStorage for this Room
+            if (roomCode) {
+                const storedLocalToken = localStorage.getItem(`ma-soi-token-${roomCode}`);
+                const storedLocalName = localStorage.getItem(`ma-soi-name-${roomCode}`);
+
+                if (storedLocalToken) {
+                    console.log('[AUTO-JOIN] Found LocalStorage Token, reconnecting...');
+                    document.getElementById('playerNameInput').value = storedLocalName || '';
+                    reconnectToken = storedLocalToken; // Set global for RECONNECTED handler
+                    socket.emit('JOIN_ROOM', { roomCode, playerName: storedLocalName || 'Player', token: storedLocalToken });
+                    autoJoinSent = true;
+                    return;
+                }
             }
         });
 
@@ -1024,15 +1044,39 @@
 
         // --- SOCKET EVENTS ---
 
-        socket.on('ROOM_CREATED', (data) => { // Handled same as Join for player
+        socket.on('ROOM_CREATED', (data) => {
             myPlayerId = data.playerId;
+            const token = data.token;
+
+            // Save session for auto-reconnect
+            localStorage.setItem(`ma-soi-token-${roomCode}`, token);
+            localStorage.setItem(`ma-soi-name-${roomCode}`, document.getElementById('playerNameInput').value);
+            localStorage.setItem('last_room_code', roomCode);
+
             showScreen('lobby');
-            document.getElementById('lobbyRoomCode').innerText = data.roomCode;
+            document.getElementById('lobbyRoomCode').innerText = roomCode; // Restore UI
+            updateStatusBar('LOBBY'); // Default state until game starts
+
+            // Clear URL params to look clean? No, keep room code.
         });
 
         socket.on('RECONNECTED', (data) => {
-            myPlayerId = data.playerId || myPlayerId;
-            myRole = data.role || myRole;
+            myPlayerId = data.playerId;
+            currentRoomCode = roomCode; // Ensure roomCode set
+
+            // Save session (refresh token if needed)
+            localStorage.setItem(`ma-soi-token-${currentRoomCode}`, reconnectToken); // reconnectToken global from init
+            localStorage.setItem('last_room_code', currentRoomCode);
+
+            showScreen(data.gameState.phase === 'lobby' ? 'lobby' : 'game');
+            currentPhase = data.gameState.phase;
+            myRole = data.role;
+
+            // ... (rest of existing logic likely handles UI update, but let's Ensure)
+            // Restore logs, chat, etc.
+            if (data.gameState.actionLog) addTypesLogs(data.gameState.actionLog);
+            // Request full player list
+            socket.emit('GET_PLAYERS');
             console.log('[CLIENT] RECONNECTED: myPlayerId=', myPlayerId, 'myRole=', myRole);
             const state = data.gameState;
             if (state) {

@@ -298,12 +298,14 @@
 
                 <div style="display:flex; gap:10px; align-items:center; margin-bottom:12px;">
                     <span style="color:#cbd5e1; font-weight:600;">Chat:</span>
-                    <button class="btn btn-secondary" id="toggleChatBtn" style="width:auto; padding:10px 14px;">Đang bật</button>
+                    <button class="btn btn-secondary" id="toggleChatBtn" style="width:auto; padding:10px 14px;">Đang
+                        bật</button>
                 </div>
 
                 <div style="display:flex; gap:10px; align-items:center; margin-bottom:12px;">
                     <span style="color:#cbd5e1; font-weight:600;">AI Host:</span>
-                    <button class="btn btn-secondary" id="toggleAIHostBtn" style="width:auto; padding:10px 14px;">Tắt</button>
+                    <button class="btn btn-secondary" id="toggleAIHostBtn"
+                        style="width:auto; padding:10px 14px;">Tắt</button>
                 </div>
 
                 <div style="display: flex; gap: 10px;">
@@ -351,11 +353,11 @@
         const endGameBtn = document.getElementById('endGameBtn');
         const notificationOverlay = document.getElementById('notificationOverlay');
         const hostNameInput = document.getElementById('hostNameInput');
-    const toggleChatBtn = document.getElementById('toggleChatBtn');
-    const toggleAIHostBtn = document.getElementById('toggleAIHostBtn');
+        const toggleChatBtn = document.getElementById('toggleChatBtn');
+        const toggleAIHostBtn = document.getElementById('toggleAIHostBtn');
 
-    let chatEnabled = true;
-    let aiHostEnabled = false;
+        let chatEnabled = true;
+        let aiHostEnabled = false;
 
         // Role State
         const roles = {
@@ -476,6 +478,12 @@
             addLog(`✅ Đã tạo phòng: ${data.roomCode}`);
             updateChatToggleUI();
             updateAIToggleUI();
+
+            // Save session for auto-reconnect
+            localStorage.setItem('host_room_code', data.roomCode);
+            localStorage.setItem('host_token', data.token);
+            localStorage.setItem('host_id', data.playerId);
+            localStorage.setItem('host_name', document.getElementById('hostNameInput').value || 'Host');
         });
 
         socket.on('PLAYER_JOINED', (data) => {
@@ -627,16 +635,33 @@
 
 
         socket.on('GAME_RESET', () => {
-            // Back to lobby state
+            // Restore manual mode settings defaults if needed, but keeping role config is better
             roleConfig.classList.remove('hidden');
             startGameBtn.classList.remove('hidden');
             resetGameBtn.classList.add('hidden');
-            endGameBtn.classList.remove('hidden'); // Actually only start is needed, end is hidden until start
-            endGameBtn.classList.add('hidden'); // Ensure hidden
+            endGameBtn.classList.add('hidden');
+
+            // Clear session? No, Host might want to play again same room.
+            // But if Host LEAVES room (end session), we clear.
+            // On Reset, we stay connected.
 
             document.getElementById('phaseDisplay').innerText = 'LOBBY';
             addLog('🔄 Game đã reset về Lobby.');
             showNotification('RESET', 'Game đã về Lobby. Sẵn sàng ván mới!');
+        });
+
+        socket.on('HOST_LEFT', (data) => {
+            alert(data.message || 'Host đã rời phòng.');
+            // Only clear storage if explicitly kicked/left, not disconnect? 
+            // HOST_LEFT is broadcast to EVERYONE.
+            // If I am the Host receiving this... wait, Host socket is disconnected.
+            // This message is for OTHERS.
+            // But if I reconnect and receive this? No.
+        });
+
+        socket.on('HOST_RECONNECTED', (data) => {
+            addLog('✅ Host đã kết nối lại!');
+            showNotification('CONNECTED', 'Host đã quay lại!');
         });
 
         socket.on('HOST_UPDATE', (data) => {
@@ -792,6 +817,23 @@
                 prompt("Copy link thủ công:", url);
             });
         };
+
+        // Auto-Reconnect Logic
+        window.addEventListener('load', () => {
+            const savedRoom = localStorage.getItem('host_room_code');
+            const savedToken = localStorage.getItem('host_token');
+            const savedName = localStorage.getItem('host_name');
+
+            if (savedRoom && savedToken) {
+                console.log('Found saved session, reconnecting...');
+                hostNameInput.value = savedName || 'Host';
+                socket.emit('JOIN_ROOM', {
+                    roomCode: savedRoom,
+                    playerName: savedName || 'Host',
+                    token: savedToken
+                });
+            }
+        });
     </script>
 </body>
 

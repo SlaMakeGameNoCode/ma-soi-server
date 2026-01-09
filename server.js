@@ -224,6 +224,17 @@ io.on('connection', (socket) => {
             socket.data.playerId = playerId;
             const room = gameManager.getRoom(roomCode);
 
+            // Reconnect logic: CHECK FOR HOST GRACE TIMER
+            if (room.hostLeftTimer) {
+                const updatedPlayer = room.players.find(p => p.id === playerId);
+                if (updatedPlayer && updatedPlayer.isHost) {
+                    console.log(`[SERVER] Host ${playerId} reconnected! Cancelling delete timer.`);
+                    clearTimeout(room.hostLeftTimer);
+                    room.hostLeftTimer = null;
+                    io.to(roomCode).emit('HOST_RECONNECTED', { message: 'Host đã quay lại!' });
+                }
+            }
+
             // Debug: log alive state snapshot on each join
             try {
                 const nonHost = room.players.filter(p => !p.isHost);
@@ -838,15 +849,22 @@ io.on('connection', (socket) => {
                 const player = room.players.find(p => p.id === playerId);
 
                 if (player && player.isHost && !room.aiHostEnabled) {
-                    // Host disconnect - close room
-                    console.log(`[SERVER] Host ${playerId} disconnected from room ${roomCode}. Closing room.`);
+                    // Host disconnect in Manual Mode - Grace Period 60s
+                    console.log(`[SERVER] Host ${playerId} disconnected from room ${roomCode}. Waiting 60s for reconnect...`);
+
                     io.to(roomCode).emit('HOST_LEFT', {
-                        message: 'Host đã rời phòng. Phòng sẽ bị đóng.'
+                        message: 'Host đã mất kết nối. Đang chờ kết nối lại (60s)...'
                     });
-                    setTimeout(() => {
+
+                    // Set Grace Timer
+                    room.hostLeftTimer = setTimeout(() => {
                         gameManager.rooms.delete(roomCode);
-                        console.log(`[SERVER] Room ${roomCode} deleted`);
-                    }, 1000);
+                        console.log(`[SERVER] Room ${roomCode} deleted after Host timeout`);
+                        // Notify if anyone is still there (though they likely got kicked or stuck)
+                        // io.to(roomCode).emit('ADMIN_ROOM_CLOSED', { message: 'Host không quay lại. Phòng đã đóng.' });
+                        // Room is gone, emit won't work potentially if socket group cleaned up.
+                    }, 60000);
+
                 } else if (player) {
                     const inProgress = room.phase !== 'lobby' || room.aiHostEnabled;
                     if (inProgress) {

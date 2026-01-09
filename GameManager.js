@@ -197,7 +197,6 @@ class GameManager {
       clearTimeout(room.phaseTimer);
       room.phaseTimer = null;
     }
-    if (!room.aiHostEnabled) return;
 
     const hostId = room.aiHostId || room.players.find(p => p.isHost)?.id;
     if (!hostId) return;
@@ -211,20 +210,30 @@ class GameManager {
           onPhaseChange(room.roomCode);
         }
       } catch (e) {
-        console.error('[AI_HOST] advance error', e.message);
+        console.error('[PHASE_TIMER] advance error', e.message);
       }
     };
+
+    // Defense and vote phases ALWAYS need timers (even without AI Host)
+    if (room.phase === 'defense') {
+      console.log(`[schedulePhaseTimer] Setting defense timer (30s)`);
+      room.phaseTimer = setTimeout(advance, 30000);
+      return;
+    } else if (room.phase === 'vote') {
+      console.log(`[schedulePhaseTimer] Setting vote timer (${room.aiConfig.voteDuration || 30}s)`);
+      room.phaseTimer = setTimeout(advance, (room.aiConfig.voteDuration || 30) * 1000);
+      return;
+    }
+
+    // Other phases: only if AI Host enabled
+    if (!room.aiHostEnabled) return;
 
     if (room.phase === 'night') {
       room.phaseTimer = setTimeout(advance, (room.aiConfig.nightDuration || 45) * 1000);
     } else if (room.phase === 'day') {
       room.phaseTimer = setTimeout(advance, (room.dayPhaseDuration || 60) * 1000);
-    } else if (room.phase === 'vote') {
-      room.phaseTimer = setTimeout(advance, (room.aiConfig.voteDuration || 30) * 1000);
     } else if (room.phase === 'execution_reveal') {
       room.phaseTimer = setTimeout(advance, (room.aiConfig.revealDuration || 5) * 1000);
-    } else if (room.phase === 'defense') {
-      room.phaseTimer = setTimeout(advance, 30000);
     } else if (room.phase === 'final_verdict') {
       room.phaseTimer = setTimeout(advance, 20000);
     }
@@ -292,8 +301,8 @@ class GameManager {
       }
     }
 
-  // Reset player state for a fresh game
-  this.resetAliveState(room);
+    // Reset player state for a fresh game
+    this.resetAliveState(room);
 
     // Validation
     const totalPlayers = room.players.length;
@@ -302,21 +311,21 @@ class GameManager {
     // We can have more players than configured roles (rest become Villagers)
     // But duplicate checks should be handled
 
-  this.assignRoles(room, roleConfig);
+    this.assignRoles(room, roleConfig);
 
-  // Debug: log alive status right after role assignment
-  const aliveNonHost = room.players.filter(p => !p.isHost && p.alive).length;
-  console.log(`[START_GAME] room ${roomCode} alive non-host after reset: ${aliveNonHost}/${room.players.filter(p => !p.isHost).length}`);
+    // Debug: log alive status right after role assignment
+    const aliveNonHost = room.players.filter(p => !p.isHost && p.alive).length;
+    console.log(`[START_GAME] room ${roomCode} alive non-host after reset: ${aliveNonHost}/${room.players.filter(p => !p.isHost).length}`);
 
-  room.phase = 'night';
-  room.day = 1;
-  room.discussionReady = new Set();
-  room.finalVotes = new Map();
-  room.pendingExecutionId = null;
-  room.defenseEndsAt = null;
-  room.lastNightDeaths = [];
-  room.winner = null;
-  room.actionLog = [`Game bắt đầu với ${totalPlayers} người chơi (trừ Host).`];
+    room.phase = 'night';
+    room.day = 1;
+    room.discussionReady = new Set();
+    room.finalVotes = new Map();
+    room.pendingExecutionId = null;
+    room.defenseEndsAt = null;
+    room.lastNightDeaths = [];
+    room.winner = null;
+    room.actionLog = [`Game bắt đầu với ${totalPlayers} người chơi (trừ Host).`];
 
     return room;
   }
@@ -527,7 +536,7 @@ class GameManager {
         } else {
           // Apply death
           victim.alive = false;
-            recordDeath(victim);
+          recordDeath(victim);
           logs.push(`💀 ${victim.name} đã bị Sói giết.`);
         }
       }
@@ -621,7 +630,7 @@ class GameManager {
         console.log(`[HUNTER] Death link check: target=${target?.name}, target.alive=${target?.alive}`);
         if (target && target.alive) {
           target.alive = false;
-            recordDeath(target);
+          recordDeath(target);
           logs.push(`🏹 Thợ săn ${hunter.name} chết đã kéo theo ${target.name}!`);
           console.log(`[HUNTER] Death link triggered: ${target.name} dies with hunter`);
         }
@@ -856,15 +865,15 @@ class GameManager {
       room.actionLog.push('⚖️ Không có mục tiêu để xử.');
     }
 
-  this.checkWin(room);
-  if (room.phase === 'end') return;
+    this.checkWin(room);
+    if (room.phase === 'end') return;
 
-  room.pendingExecutionId = null;
-  room.finalVotes.clear();
-  room.discussionReady = new Set();
-  room.day++;
-  room.phase = 'execution_reveal';
-  room.actionLog.push('🗣️ Chuẩn bị công bố kết quả bầu cử...');
+    room.pendingExecutionId = null;
+    room.finalVotes.clear();
+    room.discussionReady = new Set();
+    room.day++;
+    room.phase = 'execution_reveal';
+    room.actionLog.push('🗣️ Chuẩn bị công bố kết quả bầu cử...');
   }
 
   // Manual Phase Advance (Host)
@@ -916,7 +925,7 @@ class GameManager {
     room.actions.clear();
     room.winner = null;
     room.actionLog = ['🔄 Host đã kết thúc game. Về Lobby.'];
-  room.chatLog = [];
+    room.chatLog = [];
 
     // Restore owner as host in lobby
     const owner = room.players.find(p => p.id === room.ownerId);
@@ -954,7 +963,7 @@ class GameManager {
     room.actions.clear();
     room.winner = null;
     room.actionLog = ['🔄 Game đã được reset.'];
-  room.chatLog = [];
+    room.chatLog = [];
 
     // Restore owner as host in lobby
     const owner = room.players.find(p => p.id === room.ownerId);
@@ -1057,7 +1066,7 @@ class GameManager {
       const activePlayers = room.players.filter(p => p.alive && nightRoles.includes(p.role));
       total = activePlayers.length;
       submitted = activePlayers.filter(p => room.actions.has(p.id)).length;
-      
+
       console.log(`[getActionStatus] Night: submitted=${submitted}/${total}, active roles:`, activePlayers.map(p => `${p.name}(${p.role})`));
     } else if (room.phase === 'final_verdict') {
       total = room.players.filter(p => p.alive).length;
@@ -1181,7 +1190,7 @@ class GameManager {
       }
     }
 
-  const requestingPlayer = room.players.find(p => p.id === playerId);
+    const requestingPlayer = room.players.find(p => p.id === playerId);
     const isHost = requestingPlayer?.isHost || false;
     const isDead = requestingPlayer ? !requestingPlayer.alive : false;
 

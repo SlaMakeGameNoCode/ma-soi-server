@@ -198,42 +198,40 @@ class GameManager {
       room.phaseTimer = null;
     }
 
+    // Check AI Host enabled FIRST (Restore manual mode behavior)
+    if (!room.aiHostEnabled) return;
+
     const hostId = room.aiHostId || room.players.find(p => p.isHost)?.id;
     if (!hostId) return;
 
     const advance = () => {
       try {
+        console.log(`[AI_HOST] Timer actions: Auto advancing phase from ${room.phase}`);
         this.advancePhase(room.roomCode, hostId);
-        // Notify about phase change after advance
+
+        // Notify about phase change
         if (onPhaseChange) {
-          console.log(`[schedulePhaseTimer] Phase changed, calling callback`);
           onPhaseChange(room.roomCode);
         }
+
+        // CRITICAL FIX: Schedule timer for the NEXT phase
+        this.schedulePhaseTimer(room, onPhaseChange);
+
       } catch (e) {
-        console.error('[PHASE_TIMER] advance error', e.message);
+        console.error('[AI_HOST] advance error', e.message);
       }
     };
-
-    // Defense and vote phases ALWAYS need timers (even without AI Host)
-    if (room.phase === 'defense') {
-      console.log(`[schedulePhaseTimer] Setting defense timer (30s)`);
-      room.phaseTimer = setTimeout(advance, 30000);
-      return;
-    } else if (room.phase === 'vote') {
-      console.log(`[schedulePhaseTimer] Setting vote timer (${room.aiConfig.voteDuration || 30}s)`);
-      room.phaseTimer = setTimeout(advance, (room.aiConfig.voteDuration || 30) * 1000);
-      return;
-    }
-
-    // Other phases: only if AI Host enabled
-    if (!room.aiHostEnabled) return;
 
     if (room.phase === 'night') {
       room.phaseTimer = setTimeout(advance, (room.aiConfig.nightDuration || 45) * 1000);
     } else if (room.phase === 'day') {
       room.phaseTimer = setTimeout(advance, (room.dayPhaseDuration || 60) * 1000);
+    } else if (room.phase === 'vote') {
+      room.phaseTimer = setTimeout(advance, (room.aiConfig.voteDuration || 30) * 1000);
     } else if (room.phase === 'execution_reveal') {
       room.phaseTimer = setTimeout(advance, (room.aiConfig.revealDuration || 5) * 1000);
+    } else if (room.phase === 'defense') {
+      room.phaseTimer = setTimeout(advance, 30000);
     } else if (room.phase === 'final_verdict') {
       room.phaseTimer = setTimeout(advance, 20000);
     }
@@ -1138,9 +1136,9 @@ class GameManager {
             if (onPhaseChange) {
               console.log(`[maybeAutoAdvance] Calling onPhaseChange callback`);
               onPhaseChange(roomCode);
-            } else {
-              console.log(`[maybeAutoAdvance] WARNING: No onPhaseChange callback!`);
             }
+            // CRITICAL: Schedule timer for next phase (Defense)
+            this.schedulePhaseTimer(currentRoom, onPhaseChange);
           } else {
             console.log(`[maybeAutoAdvance] SKIP advance: currentPhase=${currentRoom?.phase}`);
           }
@@ -1157,6 +1155,8 @@ class GameManager {
           if (currentRoom && currentRoom.phase === 'final_verdict') {
             this.advancePhase(roomCode, hostId);
             if (onPhaseChange) onPhaseChange(roomCode);
+            // CRITICAL: Schedule timer for next phase
+            this.schedulePhaseTimer(currentRoom, onPhaseChange);
           }
         }, 1500);
         return;

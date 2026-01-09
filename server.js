@@ -58,7 +58,10 @@ const emitPhaseChange = (roomCode) => {
             executedPlayerId: room.executedPlayerId,
             pendingExecutionId: room.pendingExecutionId,
             defenseEndsAt: room.defenseEndsAt,
-            nightDeaths: room.lastNightDeaths || []
+            nightDeaths: room.lastNightDeaths || [],
+            // Pass durations for client-side timer
+            dayPhaseDuration: room.dayPhaseDuration,
+            aiConfig: room.aiConfig
         });
     }
 };

@@ -1140,7 +1140,8 @@
 
             // Start countdown timer for phases that don't get TIMER_UPDATE from server
             // Night phase: no timer (phases happen when actions complete)
-            // Day phase: handled by server TIMER_UPDATE
+            // Day phase: handled by CLIENT-SIDE timer now (server sends duration)
+            // Vote, Defense, Final Verdict: need client-side timer
             // Vote, Defense, Final Verdict: need client-side timer
             const timerDisplay = document.getElementById('timerDisplay');
             if (window.clientPhaseTimer) clearInterval(window.clientPhaseTimer);
@@ -1161,6 +1162,10 @@
                 // No timer for night phase
                 timerDisplay.style.display = 'none';
                 phaseDuration = 0;
+            } else if (data.phase === 'day') {
+                // Day discussion timer
+                phaseDuration = data.dayPhaseDuration || 60;
+                console.log('[TIMER] Starting Day timer:', phaseDuration);
             }
 
             if (phaseDuration > 0) {

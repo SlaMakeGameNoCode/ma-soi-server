@@ -145,6 +145,9 @@ class GameManager {
 
     const player = room.players.find(p => p.id === playerId);
     if (!player) throw new Error('Người chơi không hợp lệ');
+    
+    // Prevent dead players from chatting
+    if (!player.alive) throw new Error('Người chết không được chat');
 
     const trimmed = String(message || '').trim();
     if (!trimmed) throw new Error('Tin nhắn trống');
